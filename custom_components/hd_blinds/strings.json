@@ -1,0 +1,12 @@
+{
+  "title": "HD Blinds",
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {"title": "Select a blind", "data": {"address": "Blind"}},
+      "pair": {"title": "Pair HD Blind", "description": "Hold the blind's physical pairing button for 3 seconds, then select Submit within 90 seconds."}
+    },
+    "error": {"cannot_pair": "Could not enroll. Reopen pairing mode and keep the blind near an active Bluetooth proxy."},
+    "abort": {"already_configured": "This blind is already configured.", "no_devices_found": "No blinds running HD custom firmware were found."}
+  }
+}

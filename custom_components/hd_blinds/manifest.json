@@ -1,0 +1,13 @@
+{
+  "domain": "hd_blinds",
+  "name": "HD Blinds",
+  "version": "0.1.0",
+  "bluetooth": [{"service_uuid": "b7e50001-6f8a-4d47-9ca5-3129a5c7a600", "connectable": true}],
+  "config_flow": true,
+  "dependencies": ["bluetooth"],
+  "documentation": "https://github.com/hubertpi/esphome-hd-blinds",
+  "issue_tracker": "https://github.com/hubertpi/esphome-hd-blinds/issues",
+  "codeowners": ["@hubertpi"],
+  "iot_class": "local_push",
+  "requirements": ["bleak-retry-connector==4.7.1"]
+}
