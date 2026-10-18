@@ -28,7 +28,7 @@ class BlindClient:
         if self.changed:
             self.changed(self.status)
 
-    async def _connect(self):
+    async def _connect(self, cache_retry=True):
         if self.client and self.client.is_connected:
             return
         device = self.get_device()
@@ -43,12 +43,26 @@ class BlindClient:
             status = p.Status.decode(await self.client.read_gatt_char(p.STATUS))
             if not status.flags & 4:
                 raise PermissionError('Blind authentication failed')
+            # OTA-capable firmware must expose these UUIDs. ESPHome/BlueZ may
+            # retain an older service table even with use_services_cache=False.
+            if status.flags & 256 and hasattr(self.client, 'services'):
+                missing = [uuid for uuid in (p.OTA_CONTROL, p.OTA_DATA, p.BATTERY)
+                           if self.client.services.get_characteristic(uuid) is None]
+                if missing:
+                    if not cache_retry:
+                        raise ConnectionError('Bluetooth service cache is still missing OTA characteristics')
+                    await self.client.clear_cache()
+                    await self.client.disconnect()
+                    self.client = None
+                    await self._connect(cache_retry=False)
+                    return
             self.firmware_version = bytes(await self.client.read_gatt_char(p.FIRMWARE)).decode('utf-8').rstrip('\0')
             self.settings = p.Settings.decode(await self.client.read_gatt_char(p.SETTINGS))
             await self.client.start_notify(p.STATUS, self._notification)
             self.status = status
         except Exception:
-            await self.client.disconnect()
+            if self.client is not None:
+                await self.client.disconnect()
             raise
 
     async def refresh(self):

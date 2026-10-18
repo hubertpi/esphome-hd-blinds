@@ -102,3 +102,19 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         status=await self.blind.refresh()
         self.assertTrue(status.flags & 256)
         self.assertIsNone(self.blind.battery_mv)
+
+    async def test_stale_ota_services_cleared_before_reconnect(self):
+        self.peripheral.ota=True
+        services=types.SimpleNamespace(get_characteristic=lambda uuid:None)
+        self.peripheral.services=services
+        async def clear():
+            services.get_characteristic=lambda uuid:object()
+            return True
+        self.peripheral.clear_cache=AsyncMock(side_effect=clear)
+        async def connect(*args,**kwargs):
+            self.peripheral.is_connected=True
+            return self.peripheral
+        m.establish_connection=AsyncMock(side_effect=connect)
+        await self.blind.refresh()
+        self.peripheral.clear_cache.assert_awaited_once()
+        self.assertEqual(m.establish_connection.await_count,2)
