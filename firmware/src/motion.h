@@ -62,6 +62,13 @@ static inline uint8_t hd_motion_duty(const hd_motion_t *m,int32_t pos,uint8_t di
   if((uint32_t)remaining>=window)return cruise;
   return floor+(uint32_t)(cruise-floor)*remaining/window;
 }
+/* Startup torque and endpoint slowdown are separate phases. The encoder IRQ
+ * still enforces the target while starting, including short moves. */
+static inline uint8_t hd_motion_output(const hd_motion_t *m,int32_t pos,uint8_t dir,
+                                     uint8_t cruise,uint8_t startup,uint32_t elapsed,uint16_t ramp) {
+  if(elapsed<ramp)return (uint8_t)((int32_t)startup+((int32_t)cruise-startup)*(int32_t)elapsed/ramp);
+  return hd_motion_duty(m,pos,dir,cruise);
+}
 /* Learn observed coast distance; never auto-reverse or hide physical overshoot. */
 static inline void hd_motion_learn(hd_motion_t *m,uint8_t dir,int32_t cut,int32_t settled) {
   int64_t coast=dir==1?(int64_t)cut-settled:(int64_t)settled-cut;

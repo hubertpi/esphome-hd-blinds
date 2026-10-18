@@ -50,6 +50,17 @@ int main(void) {
  assert(hd_motion_flags(&m)&HD_CALIBRATING);
  /* Firmware records this encoder count rather than snapping to a target. */
  assert(hd_motion_percent(&m,903)==10);
+ /* Target moves must retain the configured startup torque, even when
+    cruise/near-target speeds are lower. This also covers short moves. */
+ m.target=900;m.targeting=true;
+ assert(hd_motion_output(&m,0,2,60,75,0,250)==75);
+ assert(hd_motion_output(&m,0,2,60,75,240,250)==61);
+ assert(hd_motion_output(&m,899,2,60,75,240,250)==61);
+ assert(hd_motion_output(&m,0,2,60,75,100,250)==69);
+ assert(hd_motion_output(&m,0,2,60,75,250,250)==60);
+ assert(hd_motion_output(&m,0,1,80,50,125,250)==65);
+ assert(hd_motion_output(&m,899,2,60,75,250,250)==55);
+ assert(hd_motion_output(&m,0,2,60,75,0,0)==60);
  int32_t record[6],restored;
  hd_motion_record(&m,903,true,record);
  hd_motion_t rebooted={0};

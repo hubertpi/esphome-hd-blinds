@@ -1,7 +1,8 @@
 {
-  "version": "0.3.1",
-  "bytes": 181356,
-  "sha256": "0780895c243f63ba6365a4508d93c63bb1bb7714933ded985997101f57283465",
+  "version": "0.3.2",
+  "bytes": 181420,
+  "sha256": "792eb827e245086d480b2340c87d1bcd86c6eca2986ff10d0c288752a201f30b",
   "encoding": "gzip-base64",
-  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-calibration-0.3.1.gz.b64"
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-calibration-0.3.2.gz.b64",
+  "summary": "Immediate startup PWM with a ramp to directional speed; endpoint/calibration data preserved."
 }

@@ -69,6 +69,14 @@ class BlindClient:
                 await self.client.disconnect()
             raise
 
+    async def refresh_status(self):
+        """Read only the live count/state for responsive calibration screens."""
+        async with self.lock:
+            await self._connect()
+            self.status=p.Status.decode(await self.client.read_gatt_char(p.STATUS))
+            if self.changed:self.changed(self.status)
+            return self.status
+
     async def refresh(self):
         async with self.lock:
             await self._connect()
@@ -94,7 +102,15 @@ class BlindClient:
                 p.command(opcode, self.sequence, argument), response=True)
             status = p.Status.decode(await self.client.read_gatt_char(p.STATUS))
             self.status = status
-            if status.sequence != self.sequence or status.result:
+            if status.sequence != self.sequence:
+                raise RuntimeError('Blind acknowledgement sequence did not match; command was not replayed')
+            if status.result:
+                if status.result==3 and status.flags & p.CALIBRATED and not status.flags & p.POSITION_VALID:
+                    raise RuntimeError('Position reference is uncertain. Recalibrate before moving to a position or endpoint.')
+                if status.result==6:
+                    raise RuntimeError('Motor fault is latched. Check Motor fault and clear it before moving.')
+                if status.result==4:
+                    raise RuntimeError('Blind is busy moving, finishing its stop, calibrating, or updating.')
                 raise RuntimeError(f'Blind command rejected: result {status.result}')
             if self.changed:
                 self.changed(status)

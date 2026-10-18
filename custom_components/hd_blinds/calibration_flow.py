@@ -1,6 +1,7 @@
 """Interactive upper-then-lower endpoint calibration in the device options."""
 import asyncio
 import logging
+import time
 import probatio
 from homeassistant.config_entries import OptionsFlow
 from homeassistant.helpers import selector
@@ -19,12 +20,13 @@ class BlindCalibrationFlow(OptionsFlow):
         return self.config_entry.runtime_data
 
     async def _refresh(self):
-        status=await self.coordinator.blind.refresh()
+        status=await self.coordinator.blind.refresh_status()
         self.coordinator.async_set_updated_data(status)
 
     async def _send(self, opcode, arg=0):
         await self.coordinator.blind.send(opcode,arg)
-        await self._refresh()
+        if self.coordinator.blind.status is not None:
+            self.coordinator.async_set_updated_data(self.coordinator.blind.status)
 
     async def async_step_init(self,user_input=None):
         if not self.coordinator.data.flags & p.CAL_CAPABLE:
@@ -42,7 +44,6 @@ class BlindCalibrationFlow(OptionsFlow):
             description_placeholders={'error':''})
 
     async def _menu(self):
-        await self._refresh()
         return self.async_show_menu(step_id=self._stage,
             menu_options=['pulse_up','pulse_down','pulse_length',
                           'set_upper' if self._stage=='upper' else 'set_lower','stop','cancel'],
@@ -59,9 +60,17 @@ class BlindCalibrationFlow(OptionsFlow):
 
     async def _pulse_motor(self,opcode):
         try:
+            started=time.monotonic()
             await self._send(opcode,self._pulse)
-            # Firmware bounds the jog; wait for coast and durable-position save.
-            await asyncio.sleep(self._pulse/1000+0.5)
+            # Count BLE acknowledgement time toward the pulse/coast interval.
+            # No battery/settings reads are needed for a jog screen.
+            await asyncio.sleep(max(0,self._pulse/1000+0.32-(time.monotonic()-started)))
+            await self._refresh()
+            deadline=time.monotonic()+2
+            while self.coordinator.data.state in (1,2) or self.coordinator.data.flags & 16384:
+                if time.monotonic()>=deadline:raise TimeoutError('Motor is still moving or settling; use Stop.')
+                await asyncio.sleep(0.05)
+                await self._refresh()
             self._error=''
         except Exception as err:
             self._error=str(err)

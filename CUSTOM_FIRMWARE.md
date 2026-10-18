@@ -134,3 +134,26 @@ handler also clears it before starting a move. Negative coast counts such as
 -2 at the upper endpoint are retained and do not prevent downward travel.
 Calibration, position records, PWM settings and pairing are unchanged. A native
 board-driver regression exercises upper target → coast to -2 → downward travel.
+
+### 0.3.2: startup semantics and independent firmware discovery
+
+Startup PWM is applied immediately when a move is accepted. During Startup ramp
+milliseconds it interpolates from Startup PWM to the selected Up/Down PWM. With
+75% startup, 60% Down and a 250 ms ramp this means 75% immediately, then a ramp
+to 60% over 250 ms. A zero ramp uses the direction's running PWM immediately.
+Endpoint slowdown runs after this startup phase; the encoder target cutoff and
+fault watchdog remain active throughout. Calibration/position/PWM data persist.
+
+The HA integration checks the GitHub firmware manifest at startup and every six
+hours, retains the last successful result during network errors, and downloads
+and checksum-checks firmware only when Install is requested. A new firmware-only
+release no longer requires a HACS integration redownload. Calling
+homeassistant.update_entity on the Firmware entity checks immediately. Future
+integration releases use numeric major.minor.patch GitHub release tags.
+
+Calibration pages no longer reread settings/battery several times per pulse.
+They wait only for the timed jog/coast and perform a lightweight status read;
+the normal HA form-action spinner remains. Errors now explain an uncertain
+position reference instead of only returning numeric command result 3. After an
+encoder-stall fault, clearing the fault still does not manufacture a reference;
+recalibration is required if the Position referenced diagnostic is Off.

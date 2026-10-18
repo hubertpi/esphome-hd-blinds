@@ -40,7 +40,7 @@ f=importlib.import_module('calibration_test.calibration_flow')
 c=importlib.import_module('calibration_test.cover')
 async def test():
  status=types.SimpleNamespace(flags=p.CAL_CAPABLE,position=123,percent=255,state=0)
- blind=types.SimpleNamespace(send=AsyncMock(),refresh=AsyncMock(return_value=status))
+ blind=types.SimpleNamespace(send=AsyncMock(),status=status,refresh_status=AsyncMock(return_value=status))
  coordinator=types.SimpleNamespace(data=status,blind=blind,
    async_set_updated_data=lambda value:setattr(coordinator,'data',value))
  flow=f.BlindCalibrationFlow()

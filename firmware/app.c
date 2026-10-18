@@ -55,7 +55,7 @@ static void stop(void) {
 static void status(uint8_t out[20]) {
   memset(out,0,20);out[0]=1;out[1]=hd_ota_busy()?4:(fault?3:direction);
   uint8_t charge=board_charger_raw(); /* PC7 active-low; PB13 wall power active-low. */
-  put16(out+2,(paired?1:0)|(pairing()?2:0)|(authenticated?4:0)|(!(charge&1)?8:0)|(!(charge&2)?16:0)|128|256|hd_motion_flags(&motion)|(hd_battery_percent()!=255?64:0));
+  put16(out+2,(paired?1:0)|(pairing()?2:0)|(authenticated?4:0)|(!(charge&1)?8:0)|(!(charge&2)?16:0)|128|256|(settling?16384:0)|hd_motion_flags(&motion)|(hd_battery_percent()!=255?64:0));
   put16(out+4,sequence);out[6]=result;out[7]=hd_battery_percent();out[8]=hd_motion_percent(&motion,board_position());out[9]=fault;
   put32(out+10,(uint32_t)board_position());put32(out+14,board_pulses());
   put16(out+18,(uint16_t)(now_ms()/1000));
@@ -90,12 +90,10 @@ static void tick(app_timer_t *timer,void *data) {
     } else if((int32_t)(now-stop_at)>=0) {
       bool was_targeting=motion.targeting;stop();if(was_targeting)fault=2;
     } else if(now-last_encoder_at>2000) {stop();fault=5;motion.referenced=false;}
-    else if(now-start_at>=20) {
-      uint32_t elapsed=now-start_at-20,ramp=u16(settings+4);
-      uint8_t cruise=settings[direction],duty=cruise;
-      if(elapsed<ramp)duty=50+(settings[3]-50)*elapsed/(ramp?ramp:1);
-      uint8_t capped=hd_motion_duty(&motion,board_position(),direction,cruise);
-      if(motion.targeting && duty>capped)duty=capped;
+    else {
+      uint32_t elapsed=now-start_at,ramp=u16(settings+4);
+      uint8_t duty=hd_motion_output(&motion,board_position(),direction,
+                                   settings[direction],settings[3],elapsed,ramp);
       board_drive(direction,duty);
       if(motion.targeting)board_target(true,motion.target);
     }
@@ -123,7 +121,10 @@ static uint8_t start_motion(uint8_t dir,uint32_t duration,bool targeting,int32_t
   motion.sampled_at=now_ms();motion.last_position=board_position();motion.velocity=0;
   last_pulses=board_pulses();last_encoder_at=now_ms();
   sl_power_manager_add_em_requirement(SL_POWER_MANAGER_EM1);motor_em1=true;
-  direction=dir;start_at=now_ms();stop_at=start_at+duration;return 0;
+  direction=dir;start_at=now_ms();stop_at=start_at+duration;
+  board_drive(dir,hd_motion_output(&motion,board_position(),dir,settings[dir],settings[3],0,u16(settings+4)));
+  if(targeting)board_target(true,target);
+  return 0;
 }
 static uint8_t move_target(uint8_t percent) {
   if(!motion.calibrated || !motion.referenced || motion.stage)return 3;
@@ -204,7 +205,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
         sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
       }
-      const uint8_t firmware_version[]="0.3.1";
+      const uint8_t firmware_version[]="0.3.2";
       sl_bt_gatt_server_write_attribute_value(gattdb_firmware_revision_string,0,5,firmware_version);
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);

@@ -107,3 +107,13 @@ Before starting a move it is written with referenced=0; after settling it is
 written with the current count and referenced=1 if the reference is trusted.
 0x48004 stores four bytes of slowdown settings. There are no per-pulse flash
 writes. Original pairing/settings and the OTA storage layout are retained.
+
+### 0.3.2 startup and settling update
+
+Startup PWM applies immediately, then linearly transitions to directional cruise
+PWM during ramp_ms. For ramp_ms=0, cruise applies immediately. This fixes the
+previous 50%-to-startup ramp and the position-mode cap that suppressed startup
+torque. Endpoint slowdown is a separate later phase. Status flag 16384 denotes
+the coast/settling interval; configuration flows may wait for it to clear before
+capturing an endpoint. No wire frame lengths, NVM3 layouts or characteristic
+UUIDs changed from 0.3.0.
