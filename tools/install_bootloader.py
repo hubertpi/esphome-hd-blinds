@@ -65,7 +65,10 @@ def main():
         for name,data in images.items():(work/(name+'.bin')).write_bytes(data)
         current=work/'current-bootloader.bin'
         # Remain halted between preflight and install: RAM will be overwritten.
-        output=openocd(f'''halt
+        output=openocd(f'''reset run
+          sleep 100
+          halt
+          mww 0xE000ED94 0
           mww 0x4400A09C 0x8000
           puts "BOOT WRITE PROTECTION: [read_memory 0x400E0090 32 1]"
           if {{([lindex [read_memory 0x400E0090 32 1] 0] & 2) != 0}} {{error "Bootloader write-protected; no flash was changed"}}
@@ -76,9 +79,13 @@ def main():
         if current.read_bytes()!=original:
             raise RuntimeError('Current bootloader differs from backup; no flash was changed')
         output=openocd(f'''halt
+          mww 0xE000ED94 0
+          puts "MPU DISABLED"
           flash probe 0
           flash write_image erase {work/'hd-blind-bench.bin'} 0 bin
+          puts "MAIN FLASH WRITTEN"
           verify_image {work/'hd-blind-bench.bin'} 0 bin
+          puts "MAIN FLASH VERIFIED"
           load_image {work/'hd-bootloader-stage2.bin'} 0x20000000 bin
           load_image {work/'hd-bootloader-writer.bin'} 0x20008000 bin
           mww 0xE000E010 0
@@ -90,6 +97,9 @@ def main():
           reg faultmask 0
           reg primask 1
           reg xpsr 0x01000000
+          mww 0xE000ED28 0xFFFFFFFF
+          mww 0xE000ED2C 0xFFFFFFFF
+          puts "STARTING RAM WRITER"
           resume 0x20008000
           wait_halt 15000
           puts "WRITER RESULT: [read_memory 0x20007000 32 1]"
