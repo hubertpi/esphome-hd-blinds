@@ -39,6 +39,13 @@ void HDHub::set_phone_mac(uint64_t mac) {
   for (int i = 5; i >= 0; --i) { phone_mac_[i] = mac & 0xFF; mac >>= 8; }
 }
 void HDHub::setup() {
+  // Runs before ESP32BLE::setup(), which initializes global_ble. Use the
+  // already-constructed instance injected by codegen, never that global.
+  if (ble_ == nullptr) {
+    ESP_LOGE(TAG, "Bluetooth component was not injected");
+    mark_failed();
+    return;
+  }
   if ((phone_mac_[0] & 1) != 0) {
     ESP_LOGE(TAG, "Phone identity must be a unicast public MAC");
     mark_failed();
@@ -50,7 +57,7 @@ void HDHub::setup() {
     mark_failed();
     return;
   }
-  esp32_ble::global_ble->set_name(phone_name_.c_str());
+  ble_->set_name(phone_name_.c_str());
   ready_ = true;
 }
 void HDHub::dump_config() {

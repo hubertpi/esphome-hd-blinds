@@ -33,6 +33,7 @@ BLIND_SCHEMA = cv.Schema({
 }).extend(cv.COMPONENT_SCHEMA).extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA)
 CONFIG_SCHEMA = cv.All(cv.Schema({
     cv.GenerateID(): cv.declare_id(Hub),
+    cv.GenerateID("ble_id"): cv.use_id(esp32_ble.ESP32BLE),
     cv.Required("phone_mac"): cv.mac_address,
     cv.Required("phone_name"): cv.All(cv.string_strict, cv.Length(min=1, max=29)),
     cv.Required("blinds"): cv.All(cv.ensure_list(BLIND_SCHEMA), cv.Length(min=1, max=3)),
@@ -43,6 +44,8 @@ async def to_code(config):
     cg.add_define("USE_ESP32_BLE_UUID")
     hub = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(hub, config)
+    ble = await cg.get_variable(config["ble_id"])
+    cg.add(hub.set_ble(ble))
     cg.add(hub.set_phone_mac(config["phone_mac"].as_hex))
     cg.add(hub.set_phone_name(config["phone_name"]))
     for conf in config["blinds"]:

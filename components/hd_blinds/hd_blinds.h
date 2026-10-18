@@ -1,5 +1,6 @@
 #pragma once
 #include "esphome/core/component.h"
+#include "esphome/components/esp32_ble/ble.h"
 #include "esphome/components/button/button.h"
 #include "esphome/components/esp32_ble_client/ble_client_base.h"
 #include <array>
@@ -9,12 +10,14 @@ namespace esphome::hd_blinds {
 class HDHub : public Component {
  public:
   void set_phone_mac(uint64_t mac);
+  void set_ble(esp32_ble::ESP32BLE *ble) { ble_ = ble; }
   void set_phone_name(const std::string &name) { phone_name_ = name; }
   void setup() override;
   void dump_config() override;
   float get_setup_priority() const override { return 900.0f; }
   bool ready() const { return ready_ && !is_failed(); }
  protected:
+  esp32_ble::ESP32BLE *ble_{nullptr};
   std::array<uint8_t, 6> phone_mac_{};
   std::string phone_name_;
   bool ready_{false};
