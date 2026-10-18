@@ -10,3 +10,10 @@ uint8_t board_charger_raw(void);
 int32_t board_position(void);
 uint32_t board_pulses(void);
 void board_zero(void);
+
+void board_finish_stop(void);
+void board_set_position(int32_t value);
+void board_target(bool enabled,int32_t target);
+bool board_target_reached(void);
+
+int32_t board_cut_position(void);

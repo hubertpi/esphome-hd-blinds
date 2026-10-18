@@ -5,9 +5,17 @@ from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigFlow
 from .const import CONF_PAIRING_KEY, DOMAIN
 from . import protocol as p
+from .calibration_flow import BlindCalibrationFlow
+from homeassistant.core import callback
 
 class HDBlindsConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return BlindCalibrationFlow()
+
     def __init__(self):
         self.address = None
 

@@ -4,7 +4,9 @@ from .entity import BlindEntity
 
 SENSORS = [('position', 'Raw position'), ('pulses', 'Encoder pulses'),
            ('state', 'Motor state'), ('fault', 'Motor fault'),
-           ('battery', 'Battery'), ('battery_mv', 'Battery voltage'), ('battery_raw', 'Battery ADC')]
+           ('battery', 'Battery'), ('battery_mv', 'Battery voltage'), ('battery_raw', 'Battery ADC'),
+           ('travel', 'Calibrated travel'), ('target', 'Target encoder position'),
+           ('coast_up', 'Up stopping allowance'), ('coast_down', 'Down stopping allowance')]
 async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([BlindSensor(entry.runtime_data, *s) for s in SENSORS])
 
@@ -31,9 +33,11 @@ class BlindSensor(BlindEntity, SensorEntity):
             return None if value is None else value / 1000
         if self.key == 'battery_raw':
             return self.coordinator.blind.battery_raw
+        if self.key in ('travel','target','coast_up','coast_down'):
+            return getattr(self.coordinator.blind.calibration,self.key,None)
         value = getattr(self.coordinator.data, self.key)
         if self.key == 'state':
             return {0: 'idle', 1: 'opening', 2: 'closing', 3: 'fault', 4: 'updating'}.get(value, 'unknown')
         if self.key == 'fault':
-            return {0: 'none', 1: 'stall', 2: 'run_timeout', 3: 'initialization'}.get(value, f'fault_{value}')
+            return {0: 'none', 1: 'stall', 2: 'run_timeout', 3: 'initialization', 4: 'flash_write', 5: 'encoder_stall'}.get(value, f'fault_{value}')
         return value

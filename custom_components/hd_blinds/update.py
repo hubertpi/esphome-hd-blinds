@@ -16,8 +16,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class BlindUpdate(BlindEntity, UpdateEntity):
     _attr_device_class=UpdateDeviceClass.FIRMWARE
     _attr_supported_features=UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
-    _attr_latest_version='0.2.1'
-    _attr_release_summary='Adds estimated battery percentage, measured voltage, and ADC diagnostics.'
+    _attr_latest_version='0.3.0'
+    _attr_release_summary='Guided upper/lower calibration, HA cover positioning, saved encoder position, and tunable endpoint slowdown.'
     _attr_release_url='https://github.com/hubertpi/esphome-hd-blinds/blob/main/CUSTOM_FIRMWARE.md'
     def __init__(self, coordinator):
         super().__init__(coordinator, 'firmware', 'Firmware')
@@ -54,6 +54,7 @@ class BlindUpdate(BlindEntity, UpdateEntity):
                 try:
                     await self.coordinator.blind.refresh()
                     if self.coordinator.blind.firmware_version==manifest['version']:
+                        self.coordinator.sync_firmware_version()
                         progress(100)
                         self.coordinator.async_set_updated_data(self.coordinator.blind.status)
                         return

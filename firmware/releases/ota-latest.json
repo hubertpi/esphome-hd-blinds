@@ -1,7 +1,7 @@
 {
-  "version": "0.2.1",
-  "bytes": 178616,
-  "sha256": "75a38ddc0d9f09001e406f560a459348197698c009d4fdcb877e3df120af2246",
+  "version": "0.3.0",
+  "bytes": 181356,
+  "sha256": "a8e3d3b293d528b17fa5e7cbbf9f3adaad39f9570a169517a5e20f6c50fac8c1",
   "encoding": "gzip-base64",
-  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-battery-0.2.1.gz.b64"
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-calibration-0.3.0.gz.b64"
 }

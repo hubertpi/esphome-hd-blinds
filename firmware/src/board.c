@@ -8,14 +8,20 @@
 #include "em_core.h"
 static volatile int32_t position;
 static volatile uint32_t pulses;
-static volatile uint8_t direction;
+static volatile uint8_t direction, count_direction;
+static volatile bool target_enabled, target_reached;
+static volatile int32_t target_position, target_cut_position;
 void board_stop(void) {
   GPIO_PinOutClear(gpioPortD,15); /* Disable bridge before changing inputs. */
   TIMER_Enable(TIMER0,false);
   TIMER0->ROUTEPEN=0;
   for(unsigned i=0;i<4;i++) GPIO_PinOutClear(gpioPortA,i);
-  GPIO_PinOutClear(gpioPortF,5);
   direction=0;
+  target_enabled=false;
+}
+void board_finish_stop(void) {
+  GPIO_PinOutClear(gpioPortF,5);
+  count_direction=0;
 }
 void board_init(void) {
   CMU_ClockEnable(cmuClock_GPIO,true);
@@ -38,15 +44,20 @@ void board_init(void) {
   cc.mode=timerCCModePWM; cc.edge=timerEdgeBoth; cc.cmoa=timerOutputActionToggle;
   TIMER_InitCC(TIMER0,0,&cc); TIMER_InitCC(TIMER0,1,&cc);
   TIMER_TopSet(TIMER0,120);
-  board_stop();
+  board_stop();board_finish_stop();
 }
 void GPIO_ODD_IRQHandler(void) {
   uint32_t flags=GPIO_IntGetEnabled(); GPIO_IntClear(flags);
-  if((flags&(1u<<11)) && direction) {
+  if((flags&(1u<<11)) && count_direction) {
     pulses++;
     /* Match factory signed count: direction 1 decreases, direction 2 increases. */
-    if(direction==1) { if(position>INT32_MIN) position--; }
+    if(count_direction==1) { if(position>INT32_MIN) position--; }
     else { if(position<INT32_MAX) position++; }
+    if(target_enabled && ((count_direction==1 && position<=target_position) ||
+                          (count_direction==2 && position>=target_position))) {
+      /* Cut drive at the target in the IRQ; keep counting coast pulses. */
+      target_cut_position=position;board_stop();target_reached=true;
+    }
   }
 }
 void board_drive(uint8_t dir,uint8_t duty) {
@@ -57,7 +68,7 @@ void board_drive(uint8_t dir,uint8_t duty) {
     TIMER_CompareSet(TIMER0,0,121u*duty/100u);
     TIMER_CompareSet(TIMER0,1,121u*duty/100u);
     TIMER_CounterSet(TIMER0,0);
-    direction=dir;
+    direction=dir;count_direction=dir;target_reached=false;
     GPIO_PinOutSet(gpioPortF,5);
     TIMER0->ROUTEPEN=TIMER_ROUTEPEN_CC0PEN|TIMER_ROUTEPEN_CC1PEN;
     TIMER_Enable(TIMER0,true);
@@ -78,3 +89,15 @@ uint8_t board_charger_raw(void) {
 int32_t board_position(void) {return position;}
 uint32_t board_pulses(void) {return pulses;}
 void board_zero(void) {CORE_DECLARE_IRQ_STATE;CORE_ENTER_ATOMIC();position=0;pulses=0;CORE_EXIT_ATOMIC();}
+
+void board_set_position(int32_t value) {
+  CORE_DECLARE_IRQ_STATE;CORE_ENTER_ATOMIC();position=value;CORE_EXIT_ATOMIC();
+}
+void board_target(bool enabled,int32_t target) {
+  CORE_DECLARE_IRQ_STATE;CORE_ENTER_ATOMIC();
+  target_position=target;target_enabled=enabled;target_reached=false;
+  CORE_EXIT_ATOMIC();
+}
+bool board_target_reached(void) {return target_reached;}
+
+int32_t board_cut_position(void) {return target_cut_position;}

@@ -3,10 +3,69 @@
   "config": {
     "flow_title": "{name}",
     "step": {
-      "user": {"title": "Select a blind", "data": {"address": "Blind"}},
-      "pair": {"title": "Pair HD Blind", "description": "Hold the blind's physical pairing button for 3 seconds, then select Submit within 90 seconds."}
+      "user": {
+        "title": "Select a blind",
+        "data": {
+          "address": "Blind"
+        }
+      },
+      "pair": {
+        "title": "Pair HD Blind",
+        "description": "Hold the blind's physical pairing button for 3 seconds, then select Submit within 90 seconds."
+      }
     },
-    "error": {"cannot_pair": "Could not enroll. Reopen pairing mode and keep the blind near an active Bluetooth proxy."},
-    "abort": {"already_configured": "This blind is already configured.", "no_devices_found": "No blinds running HD custom firmware were found."}
+    "error": {
+      "cannot_pair": "Could not enroll. Reopen pairing mode and keep the blind near an active Bluetooth proxy."
+    },
+    "abort": {
+      "already_configured": "This blind is already configured.",
+      "no_devices_found": "No blinds running HD custom firmware were found."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Calibrate blind travel",
+        "description": "Start with the upper limit, then set the lower limit. Starting clears the previous calibration. Only short, locally timed pulses move the motor. Stay with the blind while calibrating.\n\n{error}"
+      },
+      "upper": {
+        "title": "1. Set upper limit",
+        "description": "Use Up pulse and Down pulse to position the blind fully open. Set upper limit saves this point as zero.\n\nEncoder: {position} counts \u00b7 Pulse: {pulse} ms\n\n{error}",
+        "menu_options": {
+          "pulse_up": "\u25b2 Up pulse",
+          "pulse_down": "\u25bc Down pulse",
+          "pulse_length": "Change pulse length",
+          "set_upper": "Set upper limit (zero)",
+          "stop": "Stop",
+          "cancel": "Cancel calibration"
+        }
+      },
+      "lower": {
+        "title": "2. Set lower limit",
+        "description": "Use the pulse buttons to position the blind fully closed. Counts increase downward from the saved upper zero. Set lower limit saves the travel range in flash.\n\nEncoder: {position} counts \u00b7 Pulse: {pulse} ms\n\n{error}",
+        "menu_options": {
+          "pulse_up": "\u25b2 Up pulse",
+          "pulse_down": "\u25bc Down pulse",
+          "pulse_length": "Change pulse length",
+          "set_lower": "Set lower limit and finish",
+          "stop": "Stop",
+          "cancel": "Cancel calibration"
+        }
+      },
+      "pulse_length": {
+        "title": "Jog pulse length",
+        "data": {
+          "milliseconds": "Pulse duration"
+        }
+      }
+    },
+    "error": {
+      "command_failed": "The blind rejected the command. Stop any motion and check connectivity."
+    },
+    "abort": {
+      "firmware_required": "Calibration requires firmware 0.3.0 or later.",
+      "calibration_cancelled": "Calibration cancelled. Start again to set both endpoints.",
+      "cancel_failed": "Could not contact the blind. Jogs stop automatically. Reconnect and cancel or restart calibration."
+    }
   }
 }

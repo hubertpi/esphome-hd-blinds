@@ -3,9 +3,12 @@
 Target: BGM13P22F512GA / EFR32BG13P, REV.J motor PCB.
 Gecko SDK 4.4.6, commit 59d2160fe448b13730a91c0f019a8b4c53c43eb2.
 
-This is a bench firmware, not a calibrated blind controller. Movement has a
-configurable hard timeout (maximum 10 seconds). There are no calibrated end
-limits yet. Position counts are volatile and directional, not percentages.
+Firmware 0.3.0 provides guided upper/lower calibration through the HA Configure
+flow, persistent encoder position, and a cover percentage target after
+calibration. Movement has a configurable hard timeout up to 120 seconds and a
+2-second no-encoder-progress watchdog. Endpoint slowdown/coast control still
+requires physical bench validation before use on an installed blind.
+See PROTOCOL.md for power-loss semantics and calibration commands.
 
 Pairing: hold PC8 button for 3 seconds to open a 90-second enrollment window.
 The first boot also opens enrollment. Home Assistant stores a generated key

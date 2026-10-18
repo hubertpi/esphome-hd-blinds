@@ -20,6 +20,13 @@ class Opcode(IntEnum):
     ZERO = 4
     PAIR = 5
     CLEAR_FAULT = 9
+    CALIBRATE_BEGIN = 10
+    CALIBRATE_UPPER = 11
+    CALIBRATE_LOWER = 12
+    CALIBRATE_CANCEL = 13
+    JOG_UP = 14
+    JOG_DOWN = 15
+    SET_POSITION = 16
 
 @dataclass(frozen=True)
 class Status:
@@ -48,19 +55,19 @@ class Settings:
     ramp_ms: int = 250
     max_run_ms: int = 10000
 
-    def encode(self):
+    def encode(self, legacy=False):
         if not (0 <= self.up_pwm <= 100 and 0 <= self.down_pwm <= 100
                 and 50 <= self.startup_pwm <= 100 and 0 <= self.ramp_ms <= 2000
-                and 100 <= self.max_run_ms <= 10000):
+                and 100 <= self.max_run_ms <= (10000 if legacy else 120000)):
             raise ValueError('Settings outside firmware limits')
-        return struct.pack('<BBBBHH', 1, self.up_pwm, self.down_pwm,
-                           self.startup_pwm, self.ramp_ms, self.max_run_ms)
+        return struct.pack('<BBBBHH' if legacy else '<BBBBHI', 1 if legacy else 2,
+                           self.up_pwm, self.down_pwm, self.startup_pwm, self.ramp_ms, self.max_run_ms)
 
     @classmethod
     def decode(cls, data):
-        if len(data) != 8 or data[0] != 1:
+        if (len(data),data[0] if data else None) not in ((8,1),(10,2)):
             raise ValueError('Unsupported blind settings frame')
-        value = cls(*struct.unpack('<BBBBHH', data)[1:])
+        value = cls(*struct.unpack('<BBBBHH' if len(data)==8 else '<BBBBHI', data)[1:])
         value.encode()
         return value
 
@@ -97,3 +104,36 @@ def ota_status(data):
     if state == 6:
         raise RuntimeError(f'Firmware update failed: bootloader code 0x{error:04x}')
     return state, written, total
+
+CALIBRATION = SERVICE.replace('0001-', '000a-')
+CAL_CAPABLE = 512
+CALIBRATED = 1024
+CALIBRATING = 2048
+POSITION_VALID = 4096
+UPPER_SET = 8192
+
+@dataclass(frozen=True)
+class Calibration:
+    stage: int
+    flags: int
+    travel: int
+    target: int
+    coast_up: int
+    coast_down: int
+    slow_counts: int
+    settle_ms: int
+    slow_up_pwm: int = 60
+    slow_down_pwm: int = 55
+
+    @classmethod
+    def decode(cls, data):
+        if len(data)!=24 or data[0]!=1:
+            raise ValueError('Unsupported calibration frame')
+        return cls(*struct.unpack('<BBHiiHHHHBBxx', data)[1:])
+
+    def encode(self):
+        if not (40<=self.slow_up_pwm<=100 and 40<=self.slow_down_pwm<=100 and 4<=self.slow_counts<=2000):
+            raise ValueError('Slowdown settings outside firmware limits')
+        return struct.pack('<BBHiiHHHHBBxx',1,self.stage,self.flags,self.travel,self.target,
+                           self.coast_up,self.coast_down,self.slow_counts,self.settle_ms,
+                           self.slow_up_pwm,self.slow_down_pwm)

@@ -1,6 +1,6 @@
 from homeassistant.components.cover import CoverEntity, CoverDeviceClass, CoverEntityFeature
 from .entity import BlindEntity
-from .protocol import Opcode
+from .protocol import Opcode, CALIBRATED, POSITION_VALID, CALIBRATING
 
 async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([BlindCover(entry.runtime_data)])
@@ -11,8 +11,22 @@ class BlindCover(BlindEntity, CoverEntity):
     def __init__(self, coordinator):
         super().__init__(coordinator, 'cover', None)
     @property
+    def supported_features(self):
+        features=CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
+        if self.current_cover_position is not None:features |= CoverEntityFeature.SET_POSITION
+        return features
+    @property
+    def current_cover_position(self):
+        status=self.coordinator.data
+        required=CALIBRATED | POSITION_VALID
+        if status.flags & required == required and not status.flags & CALIBRATING and status.percent<=100:
+            return status.percent
+        return None
+    @property
     def is_closed(self):
-        return None  # Raw encoder counts are not calibrated end limits.
+        return None if self.current_cover_position is None else self.current_cover_position==0
+    async def async_set_cover_position(self, **kwargs):
+        await self.coordinator.blind.send(Opcode.SET_POSITION,int(kwargs['position']))
     @property
     def is_opening(self):
         return self.coordinator.data.state == 1

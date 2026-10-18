@@ -54,7 +54,7 @@
         <properties read="true" notify="true" />
       </characteristic>
       <characteristic id="hd_settings" name="Settings" uuid="b7e50004-6f8a-4d47-9ca5-3129a5c7a600">
-        <value length="8" type="user" variable_length="false" />
+        <value length="10" type="user" variable_length="true" />
         <properties read="true" write="true" />
       </characteristic>
       <characteristic id="hd_auth" name="Auth" uuid="b7e50005-6f8a-4d47-9ca5-3129a5c7a600">
@@ -76,6 +76,10 @@
       <characteristic id="hd_battery" name="Battery" uuid="b7e50009-6f8a-4d47-9ca5-3129a5c7a600">
         <value length="4" type="user" variable_length="false" />
         <properties read="true" />
+      </characteristic>
+      <characteristic id="hd_calibration" name="Calibration" uuid="b7e5000a-6f8a-4d47-9ca5-3129a5c7a600">
+        <value length="24" type="user" variable_length="false" />
+        <properties read="true" write="true" />
       </characteristic>
     </service>
   </gatt>

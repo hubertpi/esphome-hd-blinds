@@ -18,7 +18,7 @@ class ProtocolTests(unittest.TestCase):
 
     def test_settings_limits_roundtrip(self):
         self.assertEqual(p.Settings.decode(p.Settings().encode()),p.Settings())
-        for change in [dict(up_pwm=101),dict(startup_pwm=49),dict(max_run_ms=10001),dict(ramp_ms=2001)]:
+        for change in [dict(up_pwm=101),dict(startup_pwm=49),dict(max_run_ms=120001),dict(ramp_ms=2001)]:
             with self.assertRaises(ValueError):p.Settings(**change).encode()
 
     def test_command_layout(self):
@@ -36,3 +36,17 @@ class ProtocolTests(unittest.TestCase):
     def test_mac_name(self):
         self.assertEqual(p.device_name('08:6B:D7:6D:0D:3C'), 'HD Blind 0D3C')
         self.assertEqual(p.device_name('08:6b:d7:65:7d:52'), 'HD Blind 7D52')
+
+    def test_settings_legacy_and_extended_runtime(self):
+        settings=p.Settings(max_run_ms=120000)
+        self.assertEqual(p.Settings.decode(settings.encode()),settings)
+        with self.assertRaises(ValueError):settings.encode(legacy=True)
+        legacy=p.Settings(max_run_ms=10000)
+        self.assertEqual(len(legacy.encode(legacy=True)),8)
+        self.assertEqual(p.Settings.decode(legacy.encode(legacy=True)),legacy)
+
+    def test_calibration_frame(self):
+        frame=struct.pack('<BBHiiHHHHBBxx',1,2,p.CAL_CAPABLE|p.UPPER_SET,1200,1080,2,3,32,300,60,55)
+        cal=p.Calibration.decode(frame)
+        self.assertEqual((cal.stage,cal.travel,cal.target),(2,1200,1080))
+        with self.assertRaises(ValueError):p.Calibration.decode(b'')

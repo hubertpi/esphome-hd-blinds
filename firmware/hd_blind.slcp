@@ -33,6 +33,7 @@ include:
   - {path: ota.h}
   - {path: battery.h}
   - {path: battery_curve.h}
+  - {path: motion.h}
 sdk: {id: gecko_sdk, version: 4.4.6}
 toolchain_settings: []
 config_file:

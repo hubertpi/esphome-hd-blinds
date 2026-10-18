@@ -18,6 +18,7 @@ class BlindClient:
         self.firmware_version = None
         self.battery_mv = None
         self.battery_raw = None
+        self.calibration = None
 
     def _disconnected(self, client):
         if self.changed:
@@ -46,7 +47,10 @@ class BlindClient:
             # OTA-capable firmware must expose these UUIDs. ESPHome/BlueZ may
             # retain an older service table even with use_services_cache=False.
             if status.flags & 256 and hasattr(self.client, 'services'):
-                missing = [uuid for uuid in (p.OTA_CONTROL, p.OTA_DATA, p.BATTERY)
+                required = [p.OTA_CONTROL, p.OTA_DATA, p.BATTERY]
+                if status.flags & p.CAL_CAPABLE:
+                    required.append(p.CALIBRATION)
+                missing = [uuid for uuid in required
                            if self.client.services.get_characteristic(uuid) is None]
                 if missing:
                     if not cache_retry:
@@ -75,6 +79,8 @@ class BlindClient:
                 mv, raw = struct.unpack("<HH", data)
                 self.battery_mv = None if mv == 65535 else mv
                 self.battery_raw = None if raw == 65535 else raw
+            if self.status.flags & p.CAL_CAPABLE:
+                self.calibration = p.Calibration.decode(await self.client.read_gatt_char(p.CALIBRATION))
             return self.status
 
     async def send(self, opcode, argument=0):
@@ -98,9 +104,16 @@ class BlindClient:
             raise RuntimeError('A firmware update is in progress')
         async with self.lock:
             await self._connect()
+            if name in ('slow_up_pwm','slow_down_pwm','slow_counts'):
+                current=p.Calibration.decode(await self.client.read_gatt_char(p.CALIBRATION))
+                updated=replace(current,**{name:int(value)})
+                await self.client.write_gatt_char(p.CALIBRATION,updated.encode(),response=True)
+                self.calibration=p.Calibration.decode(await self.client.read_gatt_char(p.CALIBRATION))
+                if self.changed:self.changed(self.status)
+                return
             current = p.Settings.decode(await self.client.read_gatt_char(p.SETTINGS))
             updated = replace(current, **{name: int(value)})
-            await self.client.write_gatt_char(p.SETTINGS, updated.encode(), response=True)
+            await self.client.write_gatt_char(p.SETTINGS, updated.encode(legacy=not self.status.flags & p.CAL_CAPABLE), response=True)
             self.settings = p.Settings.decode(await self.client.read_gatt_char(p.SETTINGS))
             if self.changed:
                 self.changed(self.status)

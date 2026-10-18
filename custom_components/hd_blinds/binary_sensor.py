@@ -4,7 +4,8 @@ from .entity import BlindEntity
 
 async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([FlagSensor(entry.runtime_data, key, name, mask) for key, name, mask in
-        [('pairing', 'Pairing mode', 2), ('charging', 'Charging', 8), ('charger', 'Charger connected', 16)]])
+        [('pairing', 'Pairing mode', 2), ('charging', 'Charging', 8), ('charger', 'Charger connected', 16), ('calibrated', 'Travel calibrated', 1024),
+         ('position_valid', 'Position referenced', 4096), ('calibrating', 'Calibration active', 2048)]])
 
 class FlagSensor(BlindEntity, BinarySensorEntity):
     _attr_entity_category = EntityCategory.DIAGNOSTIC

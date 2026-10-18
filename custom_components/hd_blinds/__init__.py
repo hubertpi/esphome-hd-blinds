@@ -3,6 +3,7 @@ from datetime import timedelta
 from homeassistant.components import bluetooth
 from homeassistant.const import Platform
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .client import BlindClient
 from .const import CONF_PAIRING_KEY, DOMAIN
@@ -25,11 +26,19 @@ class BlindCoordinator(DataUpdateCoordinator):
         else:
             self.async_set_updated_data(status)
 
+    def sync_firmware_version(self):
+        registry=dr.async_get(self.hass)
+        device=registry.async_get_device(identifiers={(DOMAIN,self.entry.data['address'])})
+        if device and self.blind.firmware_version and device.sw_version!=self.blind.firmware_version:
+            registry.async_update_device(device.id,sw_version=self.blind.firmware_version)
+
     async def _async_update_data(self):
         try:
             if self.blind.updating:
                 return self.blind.status
-            return await self.blind.refresh()
+            status=await self.blind.refresh()
+            self.sync_firmware_version()
+            return status
         except PermissionError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except Exception as err:

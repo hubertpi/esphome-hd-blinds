@@ -94,3 +94,34 @@ after reconnect. The first OTA still needs physical validation.
 The 0.2.1 application-only GBL is about 175 KiB and fits the 220 KiB staging
 slot. A future minimal intermediate image is possible if growth consumes that
 margin; it is not needed for this update.
+
+### 0.3.0: guided calibration and cover position
+
+Update the HA integration before installing firmware 0.3.0 via the Firmware
+entity. Under Settings → Devices & services → HD Blinds, open Configure for the
+blind. Start calibration, use the Up pulse/Down pulse buttons to find the upper
+position, and select Set upper limit (zero). Then jog to the lower position and
+select Set lower limit and finish. The screen reports encoder counts and offers
+50–1000 ms pulses; motor timing is enforced on the blind, not by HA connectivity.
+Starting calibration clears the previous coordinate reference. Cancelling or
+closing the screen never leaves a jog running indefinitely.
+
+The existing shade gains HA's position slider after calibration: 100% fully open,
+0% fully closed; 10% open maps to 90% of the saved downward encoder range.
+Up/Down then target the calibrated endpoints, while Stop remains available.
+Slowdown distance and Near-target Up/Down PWM entities permit tuning on the test
+motor. The first target move measures coast; subsequent moves use a bounded
+per-direction stopping allowance. This is an initial bench controller, and end
+accuracy under load still needs physical validation. It never silently resets
+counts to hide overshoot. A 2-second encoder-stall watchdog and adjustable
+maximum run time (up to 120 seconds) remain active.
+
+Limits and the final encoder count are saved in wear-levelled NVM3 after the
+motor's 300 ms coast interval. A pre-movement dirty marker ensures interrupted
+movement cannot restore a falsely trusted count. Power loss while idle restores
+the position. Power loss during motion retains the limits/last saved count but
+requires recalibration before target moves. The single-channel encoder cannot
+measure movement when its electronics are unpowered. New diagnostics expose
+reference validity, calibration state, travel, target and directional allowance.
+
+The device registry firmware version now refreshes automatically after OTA.
