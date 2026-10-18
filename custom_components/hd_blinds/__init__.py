@@ -7,7 +7,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .client import BlindClient
 from .const import CONF_PAIRING_KEY, DOMAIN
 
-PLATFORMS = [Platform.COVER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.COVER, Platform.NUMBER, Platform.SENSOR, Platform.BUTTON, Platform.BINARY_SENSOR, Platform.UPDATE]
 
 class BlindCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
@@ -27,6 +27,8 @@ class BlindCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
+            if self.blind.updating:
+                return self.blind.status
             return await self.blind.refresh()
         except PermissionError as err:
             raise ConfigEntryAuthFailed(str(err)) from err

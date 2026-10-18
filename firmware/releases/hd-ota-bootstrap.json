@@ -1,0 +1,7 @@
+{
+  "version": "0.2.0",
+  "bytes": 232388,
+  "sha256": "430160889dd07160a8400d3d513d7c7b254b81829d51cceeccb90e12a2226037",
+  "encoding": "gzip-base64",
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-ota-bootstrap.gz.b64"
+}

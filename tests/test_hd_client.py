@@ -22,12 +22,25 @@ class Peripheral:
         self.sequence=0
         self.result=0
         self.writes=[]
+        self.mtu_size=23
+        self.ota=False
+        self.ota_state=0
+        self.ota_written=0
+        self.ota_total=0
     async def read_gatt_char(self, uuid):
+        if uuid==p.OTA_CONTROL:return struct.pack('<BBHIII',1,self.ota_state,0,self.ota_written,self.ota_total,0)
+        if uuid==p.BATTERY:return bytes.fromhex('ffffffff')
         if uuid==p.AUTH:return bytes(16)
+        if uuid==p.FIRMWARE:return b'0.1.0'
         if uuid==p.SETTINGS:return self.settings.encode()
-        return struct.pack('<BBHHBBBBiIH',1,0,0x85,self.sequence,self.result,255,255,0,0,0,0)
+        return struct.pack('<BBHHBBBBiIH',1,0,0x85|(256 if self.ota else 0),self.sequence,self.result,255,255,0,0,0,0)
     async def write_gatt_char(self, uuid, data, response):
         self.writes.append((uuid,data))
+        if uuid==p.OTA_CONTROL:
+            opcode=data[1]
+            if opcode==1:self.ota_state=2;self.ota_total=struct.unpack_from('<I',data,4)[0]
+            if opcode==2:self.ota_state=5
+        if uuid==p.OTA_DATA:self.ota_written+=len(data)-4
         if uuid==p.COMMAND:self.sequence=struct.unpack('<BBHI',data)[2]
         elif uuid==p.SETTINGS:self.settings=p.Settings.decode(data)
     async def start_notify(self, uuid, callback):pass
@@ -62,3 +75,19 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         self.blind.sequence=65535
         await self.blind.send(p.Opcode.STOP)
         self.assertEqual(self.blind.status.sequence,0)
+
+    async def test_ota_chunks_fit_mtu_and_have_offsets(self):
+        self.peripheral.ota=True
+        progress=[]
+        await self.blind.install_firmware(bytes(36),progress.append)
+        parts=[d for u,d in self.peripheral.writes if u==p.OTA_DATA]
+        self.assertEqual([struct.unpack_from('<I',d)[0] for d in parts],[0,16,32])
+        self.assertTrue(all(len(d)<=20 for d in parts))
+        self.assertEqual(self.peripheral.ota_written,36)
+        self.assertEqual(progress[-1],95)
+        self.assertFalse(self.blind.updating)
+
+    async def test_ota_requires_bootstrap(self):
+        with self.assertRaises(RuntimeError):
+            await self.blind.install_firmware(bytes(36),lambda x:None)
+        self.assertFalse(any(u==p.OTA_DATA for u,d in self.peripheral.writes))

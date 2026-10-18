@@ -12,4 +12,4 @@ class BlindEntity(CoordinatorEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, address)}, name=coordinator.entry.title,
             manufacturer='HD Blinds Community', model='BGM13P22 custom firmware',
-            sw_version='0.1.0')
+            sw_version=coordinator.blind.firmware_version)

@@ -1,7 +1,7 @@
 {
   "domain": "hd_blinds",
   "name": "HD Blinds",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "bluetooth": [
     {
       "service_uuid": "b7e50001-6f8a-4d47-9ca5-3129a5c7a600",

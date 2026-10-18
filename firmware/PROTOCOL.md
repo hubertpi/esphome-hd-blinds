@@ -32,3 +32,30 @@ window. A 3-second button hold opens that window. This avoids OS bonding
 requirements on ESPHome proxy connections. Enrollment is unencrypted; it must
 occur in a trusted environment. This protocol does not implement encrypted
 application payloads or signed OTA images yet.
+
+## Staged OTA and battery extensions (wire version remains 1)
+
+Characteristic 0007 is OTA control/status (READ/WRITE, 16 bytes), 0008 is OTA
+data (WRITE, maximum 244 bytes), and 0009 is battery diagnostics (READ, 4 bytes).
+Status flag bit8 advertises staged OTA; bit6 means the battery byte is valid.
+Motor state 4 means updating. Firmware version comes from Device Information
+characteristic 2A26.
+
+OTA control is `<BBHIII`: version 1, operation (1 begin, 2 finish, 3 abort),
+reserved u16, total GBL bytes u32, two reserved u32 fields. Data is offset u32
+followed by 4-byte-aligned chunks. Total must fit the 225280-byte slot. Both
+write characteristics require an authenticated connection. Motor commands and
+settings writes are blocked while updating.
+
+OTA status is `<BBHIII`: version, state, error code, bytes written, total bytes,
+bootloader version. States are 0 idle, 1 erasing, 2 ready, 3 receiving, 4 verifying,
+5 reboot pending, 6 error. Erasure/verification happen incrementally. Only a
+fully received GBL that passes bootloader verification is scheduled to install.
+A 120-second inactivity timeout or disconnect aborts an unfinished transfer.
+
+Battery diagnostics is `<HH`: millivolts, ADC raw value. 65535 means unknown.
+0.2.0 returns unknown; 0.2.1 samples the factory divider while idle, using PF6
+for divider power, APORT1XCH20, 2.5 V reference, and 147/47 scaling. Eight 12-bit
+samples are averaged once per minute. Values outside 2.5–4.35 V are rejected.
+Percentage is explicitly a single-cell Li-ion voltage estimate, not measured
+remaining charge capacity. The voltage mapping still needs a meter check.

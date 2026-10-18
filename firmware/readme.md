@@ -20,8 +20,8 @@ are implemented and await physical bench confirmation. Hardware charge-control
 pins are left at their reset input configuration. Charge control and its
 indicators must be verified before using this build on an installed blind.
 
-The SDK AppLoader is linked. OTA entry is deliberately disabled until a matched
-bootloader/update/recovery test is complete. This build is not OTA-ready yet.
+The SDK AppLoader is linked. Its legacy OTA entry stays disabled. The authenticated
+custom staged OTA interface is enabled in 0.2.0 and later.
 Do not flash a standalone application over the factory loader without checking
 its address/layout and retaining the original flash backup.
 

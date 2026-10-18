@@ -11,6 +11,8 @@
 #include "mbedtls/md.h"
 #include "sl_bt_in_place_ota_dfu.h"
 #include "src/board.h"
+#include "src/ota.h"
+#include "src/battery.h"
 
 #define KEY_OBJECT 0x48001
 #define SETTINGS_OBJECT 0x48002
@@ -34,10 +36,10 @@ static void stop(void) {
   if(motor_em1) {sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);motor_em1=false;}
 }
 static void status(uint8_t out[20]) {
-  memset(out,0,20);out[0]=1;out[1]=fault?3:direction;
+  memset(out,0,20);out[0]=1;out[1]=hd_ota_busy()?4:(fault?3:direction);
   uint8_t charge=board_charger_raw(); /* PC7 active-low; PB13 wall power active-low. */
-  put16(out+2,(paired?1:0)|(pairing()?2:0)|(authenticated?4:0)|(!(charge&1)?8:0)|(!(charge&2)?16:0)|128);
-  put16(out+4,sequence);out[6]=result;out[7]=255;out[8]=255;out[9]=fault;
+  put16(out+2,(paired?1:0)|(pairing()?2:0)|(authenticated?4:0)|(!(charge&1)?8:0)|(!(charge&2)?16:0)|128|256|(hd_battery_percent()!=255?64:0));
+  put16(out+4,sequence);out[6]=result;out[7]=hd_battery_percent();out[8]=255;out[9]=fault;
   put32(out+10,(uint32_t)board_position());put32(out+14,board_pulses());
   put16(out+18,(uint16_t)(now_ms()/1000));
 }
@@ -48,6 +50,8 @@ static void notify(void) {
 static void tick(app_timer_t *timer,void *data) {
   (void)timer;(void)data;
   uint32_t now=now_ms();
+  hd_ota_tick();
+  hd_battery_tick(!direction && !hd_ota_busy());
   if(board_button()) {
     if(!pressed_at) pressed_at=now?now:1;
     if(pressed_at!=UINT32_MAX && now-pressed_at>=3000) {
@@ -77,6 +81,7 @@ static bool valid_settings(const uint8_t *p,size_t len) {
 static uint8_t command(const uint8_t *p,size_t len) {
   if(len!=8 || p[0]!=1) return 2;
   if(!authenticated) return 1;
+  if(hd_ota_busy())return 4;
   sequence=u16(p+2);
   uint32_t duration=u32(p+4);
   switch(p[1]) {
@@ -112,6 +117,8 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
         sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
       }
+      const uint8_t firmware_version[]="0.2.1";
+      sl_bt_gatt_server_write_attribute_value(gattdb_firmware_revision_string,0,5,firmware_version);
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);
       sl_bt_advertiser_set_timing(adv,160,320,0,0);
@@ -125,7 +132,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
       break;
     }
     case sl_bt_evt_connection_closed_id:
-      stop();conn=0xff;authenticated=false;subscribed=false;
+      stop();hd_ota_disconnect();conn=0xff;authenticated=false;subscribed=false;
       sl_bt_legacy_advertiser_start(adv,sl_bt_legacy_advertiser_connectable);break;
     case sl_bt_evt_gatt_server_characteristic_status_id:
       if(evt->data.evt_gatt_server_characteristic_status.characteristic==gattdb_hd_status)
@@ -135,6 +142,8 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
       sl_bt_evt_gatt_server_user_read_request_t *e=&evt->data.evt_gatt_server_user_read_request;
       uint8_t buf[32],error=0;size_t length=0;uint16_t sent;
       if(e->characteristic==gattdb_hd_status) {status(buf);length=20;}
+      else if(e->characteristic==gattdb_hd_ota_control) {hd_ota_status(buf);length=16;}
+      else if(e->characteristic==gattdb_hd_battery) {put16(buf,hd_battery_mv());put16(buf+2,hd_battery_raw());length=4;}
       else if(e->characteristic==gattdb_hd_settings) {memcpy(buf,settings,8);length=8;}
       else if(e->characteristic==gattdb_hd_auth) {memcpy(buf,nonce,16);length=16;}
       else if(e->characteristic==gattdb_hd_enroll && pairing()) {memcpy(buf,key,32);length=32;}
@@ -153,10 +162,15 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         if(rc || e->value.len!=16) error=0x08;
         else {for(unsigned i=0;i<16;i++) different|=mac[i]^e->value.data[i];if(different) error=0x08;}
         authenticated=error==0;
+      } else if(e->characteristic==gattdb_hd_ota_control) {
+        if(!authenticated) error=0x08;
+        else {stop();error=hd_ota_control(e->value.data,e->value.len);}
+      } else if(e->characteristic==gattdb_hd_ota_data) {
+        error=authenticated?hd_ota_data(e->value.data,e->value.len):0x08;
       } else if(e->characteristic==gattdb_hd_command) result=command(e->value.data,e->value.len);
       else if(e->characteristic==gattdb_hd_settings) {
         if(!authenticated) error=0x08;
-        else if(direction) error=0x80;
+        else if(direction || hd_ota_busy()) error=0x80;
         else if(!valid_settings(e->value.data,e->value.len)) error=0x0d;
         else if(nvm3_writeData(nvm3_defaultHandle,SETTINGS_OBJECT,e->value.data,8)!=ECODE_NVM3_OK) error=0x80;
         else memcpy(settings,e->value.data,8);

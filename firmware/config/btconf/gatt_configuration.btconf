@@ -35,7 +35,7 @@
       </characteristic>
       <characteristic id="firmware_revision_string" name="Firmware Revision String" sourceId="org.bluetooth.characteristic.firmware_revision_string" uuid="2A26">
         <informativeText>Summary: The value of this characteristic is a UTF-8 string representing the firmware revision for the firmware within the device.</informativeText>
-        <value length="5" type="utf-8" variable_length="false">0.1.0</value>
+        <value length="5" type="utf-8" variable_length="false">0.2.1</value>
         <properties read="true" read_requirement="mandatory" />
       </characteristic>
       <characteristic const="false" id="system_id" name="System ID" sourceId="org.bluetooth.characteristic.system_id" uuid="2A23">
@@ -63,6 +63,18 @@
       </characteristic>
       <characteristic id="hd_enroll" name="Enroll" uuid="b7e50006-6f8a-4d47-9ca5-3129a5c7a600">
         <value length="32" type="user" variable_length="false" />
+        <properties read="true" />
+      </characteristic>
+      <characteristic id="hd_ota_control" name="Ota Control" uuid="b7e50007-6f8a-4d47-9ca5-3129a5c7a600">
+        <value length="16" type="user" variable_length="false" />
+        <properties read="true" write="true" />
+      </characteristic>
+      <characteristic id="hd_ota_data" name="Ota Data" uuid="b7e50008-6f8a-4d47-9ca5-3129a5c7a600">
+        <value length="244" type="user" variable_length="true" />
+        <properties write="true" />
+      </characteristic>
+      <characteristic id="hd_battery" name="Battery" uuid="b7e50009-6f8a-4d47-9ca5-3129a5c7a600">
+        <value length="4" type="user" variable_length="false" />
         <properties read="true" />
       </characteristic>
     </service>

@@ -18,4 +18,4 @@ result is 0x20007000. 0x4844424c means all seven pages were verified.
 
 Application enrollment keys live in main-flash NVM3 and are preserved by this
 update. The existing HA entry can reconnect; new enrollments use the MAC-based
-default device name. Bootloader and application OTA remain separate work.
+default device name. Staged application OTA uses this reserved slot in firmware 0.2.0 and later.

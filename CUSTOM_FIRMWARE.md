@@ -69,3 +69,28 @@ stage, user data and lock bits. The second stage is CRC protected and accepts
 unsigned development firmware. The SRAM writer uses Silicon Labs emlib MSC code
 and verifies each page; emulator tests exercise page boundaries and protected
 refusal. Physical normal-boot validation is still pending. OTA remains disabled.
+
+## OTA bootstrap and first wireless update
+
+1. Redownload the HD Blinds integration in HACS and restart Home Assistant.
+2. On the Pi run `tools/install_ota_bootstrap.py` with sudo to install **0.2.0**
+   over SWD. This changes only the application/AppLoader main-flash image; it
+   verifies that the bootloader is unchanged. Battery remains unknown in 0.2.0.
+3. In the device page open the **Firmware** update entity and install **0.2.1**.
+   The transfer uses HA's active BLE adapter/proxy. Keep the Pi connected for
+   recovery during this first OTA test, but the OTA transfer does not use SWD.
+4. After reconnect, confirm installed version 0.2.1 and inspect Battery, Battery
+   voltage, and Battery ADC. Battery percentage is an estimate based on a
+   single-cell Li-ion resting-voltage curve, not a coulomb counter. Validate the
+   voltage against a meter before relying on percentage.
+
+The updater downloads a hashed GBL, authenticates the BLE connection, erases only
+the needed staging pages in 0x40000–0x77000, and transfers ordered chunks. The
+bootloader verifies the complete image before scheduling installation. A failed
+transfer or failed verification does not schedule installation. NVM3 enrollment
+keys and settings above 0x77000 are retained. No automatic movement is replayed
+after reconnect. The first OTA still needs physical validation.
+
+The 0.2.1 application-only GBL is about 175 KiB and fits the 220 KiB staging
+slot. A future minimal intermediate image is possible if growth consumes that
+margin; it is not needed for this update.
