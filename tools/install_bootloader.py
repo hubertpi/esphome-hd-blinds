@@ -23,7 +23,8 @@ def download(ref,name):
     root=ROOT.format(ref=ref)
     with urllib.request.urlopen(root+name+'.json',timeout=30) as response:
         meta=json.load(response)
-    with urllib.request.urlopen(root+name+'.bin.gz.b64',timeout=30) as response:
+    suffix='.gz.b64' if name=='hd-ota-bootstrap' else '.bin.gz.b64'
+    with urllib.request.urlopen(root+name+suffix,timeout=30) as response:
         data=gzip.decompress(base64.decodebytes(response.read()))
     if len(data)!=meta['bytes'] or sha(data)!=meta['sha256']:
         raise RuntimeError(f'Checksum mismatch: {name}')
@@ -47,14 +48,18 @@ def main():
     parser.add_argument('--ref',default='main')
     parser.add_argument('--backup',type=Path,default=Path('hd-bootloader.bin'))
     parser.add_argument('--install',action='store_true',help='Write verified bootloader and firmware')
+    parser.add_argument('--ota-bootstrap',action='store_true',help='Install OTA-capable firmware directly during initial migration')
     args=parser.parse_args()
     original=args.backup.read_bytes()
     if len(original)!=16384 or sha(original)!=FACTORY_BOOT_SHA:
         parser.error('Expected the verified factory hd-bootloader.bin backup')
     if subprocess.run(['pgrep','-x','openocd'],stdout=subprocess.DEVNULL).returncode==0:
         parser.error('Another OpenOCD is running; stop it first')
+    firmware_name='hd-ota-bootstrap' if args.ota_bootstrap else 'hd-blind-bench'
     images={name:download(args.ref,name) for name in
-            ['hd-bootloader-stage2','hd-bootloader-writer','hd-blind-bench']}
+            ['hd-bootloader-stage2','hd-bootloader-writer',firmware_name]}
+    if args.ota_bootstrap:
+        images['hd-blind-bench']=images.pop(firmware_name)
     if len(images['hd-bootloader-stage2'])!=0x3800:
         parser.error('Second stage must occupy exactly seven pages')
     print('Factory backup and all three downloads verified.',flush=True)
@@ -114,5 +119,7 @@ def main():
         print('First stage unchanged; second stage and named firmware verified.',flush=True)
         openocd('reset run; puts "RESET COMPLETE";')
         print('Installed. Scan for HD Blind plus the last four MAC digits.')
+        if args.ota_bootstrap:
+            print('OTA bootstrap 0.2.0 installed. Enroll in HA, then install the current firmware through its update entity.')
 
 if __name__=='__main__':main()
