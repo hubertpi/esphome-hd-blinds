@@ -91,3 +91,14 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             await self.blind.install_firmware(bytes(36),lambda x:None)
         self.assertFalse(any(u==p.OTA_DATA for u,d in self.peripheral.writes))
+
+    async def test_bootstrap_refresh_does_not_require_battery_characteristic(self):
+        self.peripheral.ota=True
+        read=self.peripheral.read_gatt_char
+        async def without_battery(uuid):
+            if uuid==p.BATTERY:raise AssertionError('Battery diagnostic read before battery-valid flag')
+            return await read(uuid)
+        self.peripheral.read_gatt_char=without_battery
+        status=await self.blind.refresh()
+        self.assertTrue(status.flags & 256)
+        self.assertIsNone(self.blind.battery_mv)

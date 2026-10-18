@@ -55,7 +55,7 @@ class BlindClient:
         async with self.lock:
             await self._connect()
             self.status = p.Status.decode(await self.client.read_gatt_char(p.STATUS))
-            if self.status.flags & 256:
+            if self.status.flags & 64:
                 data = bytes(await self.client.read_gatt_char(p.BATTERY))
                 import struct
                 mv, raw = struct.unpack("<HH", data)
