@@ -1,10 +1,9 @@
 {
-  "version": "0.1.0-bench",
+  "bytes": 230800,
+  "sha256": "686011f9b97e5658c7341d9258e5b0fa9b264d07f037cfc9c22e25e9ac0a2727",
+  "version": "0.1.1-bench",
   "target": "BGM13P22F512GA",
   "load_address": "0x00000000",
-  "bytes": 228156,
-  "sha256": "43e6228d4a231e8c60fdd0c5e93b9c92cba43be4f409bc1602e777b33a69e12a",
   "sdk_commit": "59d2160fe448b13730a91c0f019a8b4c53c43eb2",
-  "ota_enabled": false,
-  "hardware_tested": false
+  "ota_enabled": false
 }

@@ -14,6 +14,7 @@ No phone address spoofing or imported factory bond is needed for custom firmware
 - Buttons: Zero position counter, Clear motor fault, Open pairing mode.
 - Physical button: hold 3 seconds for 90-second enrollment.
 - Blue pairing LED and red charging LED, reconstructed from factory routines.
+- Automatic name from MAC suffix, for example `HD Blind 0D3C`.
 - Persistent motor settings and per-connection HMAC authentication.
 - Local stop on BLE disconnect and a maximum 10-second movement timeout.
 
@@ -53,3 +54,18 @@ mounted blinds until the spare passes movement, charging and recovery tests.
 
 See `firmware/readme.md` for build instructions and pin mappings, and
 `firmware/PROTOCOL.md` for the wire format.
+
+## Bench validation and normal boot
+
+The spare passed HA enrollment, up/down, independent speeds, Stop, signed encoder
+counting and the physical pairing button/blue LED. The factory bootloader enforces
+ECDSA signatures and cannot start the unsigned custom image after reset. A direct
+SWD application start demonstrated that the application itself runs.
+
+`tools/install_bootloader.py --install` checks the saved factory bootloader backup,
+download hashes, and bootloader write protection before writing. It writes the
+named application and a matched SDK second stage, preserving the factory first
+stage, user data and lock bits. The second stage is CRC protected and accepts
+unsigned development firmware. The SRAM writer uses Silicon Labs emlib MSC code
+and verifies each page; emulator tests exercise page boundaries and protected
+refusal. Physical normal-boot validation is still pending. OTA remains disabled.

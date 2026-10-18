@@ -47,7 +47,7 @@ class HDBlindsConfigFlow(ConfigFlow, domain=DOMAIN):
                 status = p.Status.decode(await client.read_gatt_char(p.STATUS))
                 if not status.flags & 4:
                     raise PermissionError('Authentication failed')
-                return self.async_create_entry(title=f'HD Blind {self.address[-5:]}',
+                return self.async_create_entry(title=p.device_name(self.address),
                     data={'address': self.address, CONF_PAIRING_KEY: key.hex()})
             except Exception:
                 errors['base'] = 'cannot_pair'

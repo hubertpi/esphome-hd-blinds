@@ -1,5 +1,6 @@
 /* HD Blind experimental replacement firmware. SPDX-License-Identifier: MIT */
 #include <string.h>
+#include <stdio.h>
 #include "app.h"
 #include "sl_bluetooth.h"
 #include "gatt_db.h"
@@ -106,6 +107,11 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
       uint8_t saved[8];
       if(nvm3_readData(nvm3_defaultHandle,SETTINGS_OBJECT,saved,8)==ECODE_NVM3_OK && valid_settings(saved,8)) memcpy(settings,saved,8);
       app_timer_start(&ticker,10,tick,NULL,true);
+      bd_addr identity; uint8_t address_type; char name[14];
+      if(sl_bt_system_get_identity_address(&identity,&address_type)==SL_STATUS_OK) {
+        snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
+        sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
+      }
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);
       sl_bt_advertiser_set_timing(adv,160,320,0,0);

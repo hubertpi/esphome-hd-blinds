@@ -32,3 +32,7 @@ class ProtocolTests(unittest.TestCase):
     def test_malformed_frames(self):
         for frame in [b'',bytes(19),bytes(20),bytes([2])+bytes(19)]:
             with self.assertRaises(ValueError):p.Status.decode(frame)
+
+    def test_mac_name(self):
+        self.assertEqual(p.device_name('08:6B:D7:6D:0D:3C'), 'HD Blind 0D3C')
+        self.assertEqual(p.device_name('08:6b:d7:65:7d:52'), 'HD Blind 7D52')

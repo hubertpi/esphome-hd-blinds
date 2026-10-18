@@ -71,3 +71,11 @@ def proof(key, nonce):
     if len(key) != 32 or len(nonce) != 16:
         raise ValueError('Invalid pairing key or challenge')
     return hmac.new(key, nonce, hashlib.sha256).digest()[:16]
+
+
+def device_name(address):
+    """Stable default name shared with firmware advertising."""
+    compact = address.replace(':', '').replace('-', '').upper()
+    if len(compact) != 12 or any(c not in '0123456789ABCDEF' for c in compact):
+        raise ValueError('Invalid Bluetooth address')
+    return f'HD Blind {compact[-4:]}'
