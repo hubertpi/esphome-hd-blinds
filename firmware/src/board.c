@@ -22,6 +22,7 @@ void board_stop(void) {
 void board_finish_stop(void) {
   GPIO_PinOutClear(gpioPortF,5);
   count_direction=0;
+  target_enabled=false;target_reached=false;
 }
 void board_init(void) {
   CMU_ClockEnable(cmuClock_GPIO,true);

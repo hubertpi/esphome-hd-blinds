@@ -16,8 +16,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class BlindUpdate(BlindEntity, UpdateEntity):
     _attr_device_class=UpdateDeviceClass.FIRMWARE
     _attr_supported_features=UpdateEntityFeature.INSTALL | UpdateEntityFeature.PROGRESS
-    _attr_latest_version='0.3.0'
-    _attr_release_summary='Guided upper/lower calibration, HA cover positioning, saved encoder position, and tunable endpoint slowdown.'
+    _attr_latest_version='0.3.1'
+    _attr_release_summary='Fixes a completed endpoint move preventing the next movement. Preserves calibration and position.'
     _attr_release_url='https://github.com/hubertpi/esphome-hd-blinds/blob/main/CUSTOM_FIRMWARE.md'
     def __init__(self, coordinator):
         super().__init__(coordinator, 'firmware', 'Firmware')

@@ -118,6 +118,7 @@ static uint8_t start_motion(uint8_t dir,uint32_t duration,bool targeting,int32_t
   if(direction || settling)return 4;
   if(!settings[dir])return 3;
   if(!save_position(false))return 6;
+  board_target(false,0); /* Clear completion from the previous move before the tick checks it. */
   motion.targeting=targeting;motion.target=target;
   motion.sampled_at=now_ms();motion.last_position=board_position();motion.velocity=0;
   last_pulses=board_pulses();last_encoder_at=now_ms();
@@ -203,7 +204,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
         sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
       }
-      const uint8_t firmware_version[]="0.3.0";
+      const uint8_t firmware_version[]="0.3.1";
       sl_bt_gatt_server_write_attribute_value(gattdb_firmware_revision_string,0,5,firmware_version);
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);

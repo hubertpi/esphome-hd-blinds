@@ -1,7 +1,7 @@
 {
-  "version": "0.3.0",
+  "version": "0.3.1",
   "bytes": 181356,
-  "sha256": "a8e3d3b293d528b17fa5e7cbbf9f3adaad39f9570a169517a5e20f6c50fac8c1",
+  "sha256": "0780895c243f63ba6365a4508d93c63bb1bb7714933ded985997101f57283465",
   "encoding": "gzip-base64",
-  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-calibration-0.3.0.gz.b64"
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-calibration-0.3.1.gz.b64"
 }

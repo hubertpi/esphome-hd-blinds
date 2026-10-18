@@ -125,3 +125,12 @@ measure movement when its electronics are unpowered. New diagnostics expose
 reference validity, calibration state, travel, target and directional allowance.
 
 The device registry firmware version now refreshes automatically after OTA.
+
+### 0.3.1: clear target completion before the next move
+
+Fixes a target-reached latch that could immediately stop the movement following
+an endpoint stop. The driver clears the latch when coast finishes; the command
+handler also clears it before starting a move. Negative coast counts such as
+-2 at the upper endpoint are retained and do not prevent downward travel.
+Calibration, position records, PWM settings and pairing are unchanged. A native
+board-driver regression exercises upper target → coast to -2 → downward travel.
