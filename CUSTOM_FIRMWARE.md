@@ -155,7 +155,7 @@ recalibration is required if the Position referenced diagnostic is Off.
 ### 0.3.3: battery savings and integration icon
 
 Install HACS integration **0.3.3**, restart Home Assistant, then use the Firmware
-update entity to install **0.3.3** over BLE. The HACS update is needed this time
+update entity to install **0.3.4** over BLE. The HACS update is needed this time
 because the old integration polls the motor every 30 seconds. Future firmware-only
 releases continue to use the existing GitHub manifest/update entity.
 
@@ -174,3 +174,7 @@ days with charging disconnected and note motor use. Cell capacity and voltage
 trend can give a rough discharge estimate, but the nonlinear curve and motor
 energy mean this is not a precise idle-current measurement. Saved configuration
 and calibration survive this application-only OTA update.
+
+Firmware **0.3.4** includes the same savings plus a connection-parameter retry
+clock fix after about 25 days of uptime. Integration **0.3.3** supports it without
+another HACS update.

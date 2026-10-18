@@ -1,8 +1,8 @@
 {
-  "version": "0.3.3",
+  "version": "0.3.4",
   "bytes": 184172,
-  "sha256": "8f46ed621ab784a8c4b9d5e9b4b5abd76b2619e37be8b49c85daff31ca8c2aab",
+  "sha256": "5e278b664790db0a7e20e86a3fd28ef999f52f677dda61b2149f19cde1d689e1",
   "encoding": "gzip-base64",
-  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-power-0.3.3.gz.b64",
-  "summary": "Battery savings: event-driven idle sleep, six-hour battery sampling, sparse HA polling, live movement and immediate Stop handling."
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-power-0.3.4.gz.b64",
+  "summary": "Battery savings with six-hour idle telemetry and live movement; includes long-uptime connection timing fix."
 }

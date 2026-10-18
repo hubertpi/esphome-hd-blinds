@@ -129,6 +129,9 @@ int main(void){
  charger=3;tick(NULL,NULL);
  /* OTA keeps an active service timer rather than sleeping for six hours. */
  ota_busy=true;tick(NULL,NULL);assert(timeout_ms<=10);
+ /* Parameter transitions still work after the signed millisecond boundary. */
+ ota_busy=false;clock_ms=0x80000001ull;link_fast=link_target=false;link_attempts=0;
+ connection_mode(true);assert(link_fast);
  return 0;
 }
 ''')

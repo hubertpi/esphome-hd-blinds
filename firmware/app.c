@@ -32,7 +32,7 @@ static uint32_t now_ms(void);
 static void schedule(void);
 static void wake(void) {sl_bt_external_signal(1);}
 static void connection_mode(bool fast) {
-  if(fast!=link_target) {link_target=fast;link_attempts=0;link_retry_at=0;}
+  if(fast!=link_target) {link_target=fast;link_attempts=0;link_retry_at=now_ms();}
   if(conn==0xff || fast==link_fast || link_attempts>=3 || (int32_t)(now_ms()-link_retry_at)<0)return;
   link_attempts++;link_retry_at=now_ms()+2000;
   /* No peripheral latency: never deliberately skip a Stop receive opportunity. */
@@ -201,7 +201,7 @@ static uint8_t start_motion(uint8_t dir,uint32_t duration,bool targeting,int32_t
   direction=dir;start_at=now_ms();stop_at=start_at+duration;
   board_drive(dir,hd_motion_output(&motion,board_position(),dir,settings[dir],settings[3],0,u16(settings+4)));
   if(targeting)board_target(true,target);
-  link_retry_at=0;connection_mode(true);
+  link_retry_at=now_ms();connection_mode(true);
   return 0;
 }
 static uint8_t move_target(uint8_t percent) {
@@ -283,7 +283,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
         sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
       }
-      const uint8_t firmware_version[]="0.3.3";
+      const uint8_t firmware_version[]="0.3.4";
       sl_bt_gatt_server_write_attribute_value(gattdb_firmware_revision_string,0,5,firmware_version);
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);
@@ -292,7 +292,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
     }
     case sl_bt_evt_connection_opened_id: {
       conn=evt->data.evt_connection_opened.connection;authenticated=false;subscribed=false;
-      link_fast=link_target=false;link_attempts=0;link_retry_at=0;connection_mode(true);
+      link_fast=link_target=false;link_attempts=0;link_retry_at=now_ms();connection_mode(true);
       sl_bt_connection_disable_slave_latency(conn,1);
       size_t n=0;
       if(sl_bt_system_get_random_data(16,16,&n,nonce)!=SL_STATUS_OK || n!=16) sl_bt_connection_close(conn);

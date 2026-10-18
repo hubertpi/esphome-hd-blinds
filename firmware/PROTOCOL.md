@@ -147,3 +147,6 @@ available. Battery notifications can refresh raw voltage diagnostics at sparse
 intervals. Firmware discovery remains six-hourly over HTTP and does not wake the
 blind. Update the integration once to benefit from this reduced BLE polling.
 There are no measured current or battery-life claims.
+
+Firmware 0.3.4 fixes the connection-parameter retry timestamp across the signed
+millisecond boundary (~25 days). No protocol or integration change is needed.
