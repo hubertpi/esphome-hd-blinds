@@ -22,6 +22,28 @@
 static uint8_t adv=0xff,conn=0xff,nonce[16],key[32];
 static bool paired,authenticated,subscribed;
 static uint32_t pairing_until,pressed_at,start_at,stop_at,last_notify;
+static uint32_t last_idle_notify,advertising_until;
+static bool slow_advertising,link_fast,timer_armed;
+static uint32_t timer_due,link_retry_at;
+static bool pairing_active,link_target;
+static uint8_t link_attempts;
+static uint8_t last_event_status[20];
+static uint32_t now_ms(void);
+static void schedule(void);
+static void wake(void) {sl_bt_external_signal(1);}
+static void connection_mode(bool fast) {
+  if(fast!=link_target) {link_target=fast;link_attempts=0;link_retry_at=0;}
+  if(conn==0xff || fast==link_fast || link_attempts>=3 || (int32_t)(now_ms()-link_retry_at)<0)return;
+  link_attempts++;link_retry_at=now_ms()+2000;
+  /* No peripheral latency: never deliberately skip a Stop receive opportunity. */
+  if(sl_bt_connection_set_parameters(conn,fast?24:80,fast?40:160,0,600,0,0xffff)==SL_STATUS_OK)
+    link_fast=fast;
+}
+static void advertise(void) {
+  advertising_until=now_ms()+60000;slow_advertising=false;
+  sl_bt_advertiser_set_timing(adv,160,320,0,0);
+  sl_bt_legacy_advertiser_start(adv,sl_bt_legacy_advertiser_connectable);
+}
 static uint8_t direction,result,fault;
 static bool motor_em1;
 static uint16_t sequence;
@@ -38,12 +60,17 @@ static bool save_position(bool valid) {
   int32_t record[6];hd_motion_record(&motion,board_position(),valid,record);
   return nvm3_writeData(nvm3_defaultHandle,POSITION_OBJECT,record,sizeof(record))==ECODE_NVM3_OK;
 }
-static uint32_t now_ms(void) {return sl_sleeptimer_tick_to_ms(sl_sleeptimer_get_tick_count());}
+static uint32_t now_ms(void) {
+  uint64_t ms=0;sl_sleeptimer_tick64_to_ms(sl_sleeptimer_get_tick_count64(),&ms);return (uint32_t)ms;
+}
 static uint16_t u16(const uint8_t *p) {return p[0]|((uint16_t)p[1]<<8);}
 static uint32_t u32(const uint8_t *p) {return u16(p)|((uint32_t)u16(p+2)<<16);}
 static void put16(uint8_t *p,uint16_t v) {p[0]=v;p[1]=v>>8;}
 static void put32(uint8_t *p,uint32_t v) {put16(p,v);put16(p+2,v>>16);}
-static bool pairing(void) {return (int32_t)(pairing_until-now_ms())>0;}
+static bool pairing(void) {
+  if(pairing_active && (int32_t)(pairing_until-now_ms())<=0)pairing_active=false;
+  return pairing_active;
+}
 static void stop(void) {
   if(direction) {
     cut_direction=direction;cut_position=board_target_reached()?board_cut_position():board_position();
@@ -63,11 +90,13 @@ static void status(uint8_t out[20]) {
 static void notify(void) {
   uint8_t data[20];status(data);
   if(conn!=0xff && subscribed) sl_bt_gatt_server_send_notification(conn,gattdb_hd_status,20,data);
+  memcpy(last_event_status,data,20);
 }
 static void tick(app_timer_t *timer,void *data) {
-  (void)timer;(void)data;
+  (void)data;if(timer==&ticker)timer_armed=false;
   uint32_t now=now_ms();
   hd_ota_tick();
+  uint16_t previous_battery=hd_battery_mv();
   hd_battery_tick(!direction && !settling && !hd_ota_busy());
   if(settling && (int32_t)(now-settled_at)>=0) {
     board_finish_stop();settling=false;
@@ -79,7 +108,7 @@ static void tick(app_timer_t *timer,void *data) {
   if(board_button()) {
     if(!pressed_at) pressed_at=now?now:1;
     if(pressed_at!=UINT32_MAX && now-pressed_at>=3000) {
-      stop();pairing_until=now+90000;pressed_at=UINT32_MAX;
+      stop();pairing_active=true;pairing_until=now+90000;pressed_at=UINT32_MAX;
     }
   } else pressed_at=0;
   if(direction) {
@@ -101,9 +130,57 @@ static void tick(app_timer_t *timer,void *data) {
   /* Factory pairing: PD14 blue, 500 ms on per second. Charging: PD13 red. */
   bool charging=!(board_charger_raw()&1);
   board_leds(fault?((now/500)&1):(charging && now%2400<500), pairing() && ((now/500)&1));
-  if(now-last_notify>=250) {last_notify=now;notify();}
+  /* Position is live during movement; unchanged idle values are sent six-hourly.
+   * Flags/results/faults and battery changes bypass the position throttle. */
+  uint8_t current[20];status(current);
+  bool event=memcmp(current,last_event_status,8)!=0 || current[9]!=last_event_status[9] || previous_battery!=hd_battery_mv();
+  if(event || (direction && now-last_notify>=250) || now-last_idle_notify>=21600000u) {
+    last_notify=now;last_idle_notify=now;notify();
+  }
+  if(conn==0xff && slow_advertising && pairing())advertise();
+  if(conn==0xff && !slow_advertising && !pairing() && (int32_t)(now-advertising_until)>=0) {
+    sl_bt_advertiser_stop(adv);
+    sl_bt_advertiser_set_timing(adv,1600,1920,0,0); /* 1.0–1.2 s idle discovery. */
+    sl_bt_legacy_advertiser_start(adv,sl_bt_legacy_advertiser_connectable);
+    slow_advertising=true;
+  }
+  connection_mode(direction || settling || hd_ota_busy() || pairing());
+  schedule();
 }
-void app_init(void) {board_init();}
+/* Re-arm a single low-frequency sleeptimer at the next useful deadline.
+ * GPIO edges wake button/charging changes; there is no periodic idle tick. */
+static void schedule(void) {
+  uint32_t now=now_ms(),delay=21600000u;
+  if(direction || hd_ota_busy())delay=10;
+  else if(settling)delay=(int32_t)(settled_at-now)>0?settled_at-now:1;
+  else {uint32_t battery=hd_battery_delay();if(battery<delay)delay=battery;}
+  if(pressed_at && pressed_at!=UINT32_MAX && delay>50)delay=50;
+  if(pairing() || fault || !(board_charger_raw()&1)) {
+    uint32_t led=500-now%500;
+    if(!(board_charger_raw()&1) && !fault) {
+      uint32_t phase=now%2400;uint32_t charge=phase<500?500-phase:2400-phase;
+      if(!pairing() || charge<led)led=charge;
+    }
+    if(led<delay)delay=led;
+    if(pairing() && pairing_until-now<delay)delay=pairing_until-now;
+  }
+  if(conn==0xff && !slow_advertising && !pairing()) {
+    uint32_t due=(int32_t)(advertising_until-now)>0?advertising_until-now:1;
+    if(due<delay)delay=due;
+  }
+  if(conn!=0xff && link_attempts<3 && link_fast!=(bool)(direction || settling || hd_ota_busy() || pairing())) {
+    uint32_t retry=(int32_t)(link_retry_at-now)>0?link_retry_at-now:1;
+    if(retry<delay)delay=retry;
+  }
+  uint32_t heartbeat=21600000u-(now-last_idle_notify);
+  if(heartbeat<delay)delay=heartbeat;
+  if(!delay)delay=1;
+  /* Incoming BLE events must not postpone a motor/OTA deadline already armed. */
+  if(timer_armed && (int32_t)(timer_due-now)>0 && timer_due-now<=delay)return;
+  app_timer_stop(&ticker);timer_due=now+delay;timer_armed=true;
+  app_timer_start(&ticker,delay,tick,NULL,false);
+}
+void app_init(void) {board_init();board_set_wake_callback(wake);}
 void app_process_action(void) {}
 static bool valid_settings(const uint8_t *p,size_t len) {
   if((len!=8 || p[0]!=1) && (len!=10 || p[0]!=2))return false;
@@ -124,6 +201,7 @@ static uint8_t start_motion(uint8_t dir,uint32_t duration,bool targeting,int32_t
   direction=dir;start_at=now_ms();stop_at=start_at+duration;
   board_drive(dir,hd_motion_output(&motion,board_position(),dir,settings[dir],settings[3],0,u16(settings+4)));
   if(targeting)board_target(true,target);
+  link_retry_at=0;connection_mode(true);
   return 0;
 }
 static uint8_t move_target(uint8_t percent) {
@@ -150,7 +228,7 @@ static uint8_t command(const uint8_t *p,size_t len) {
     case 4:
       if(direction || settling || motion.calibrated || motion.stage)return 4;
       board_zero();return 0;
-    case 5:stop();pairing_until=now_ms()+90000;return 0;
+    case 5:stop();pairing_active=true;pairing_until=now_ms()+90000;return 0;
     case 9:if(direction || settling)return 4;fault=0;return 0;
     case 10: /* Begin upper calibration, invalidate previous coordinate frame. */
       if(direction || settling)return 4;
@@ -183,7 +261,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
         size_t n=0;
         if(sl_bt_system_get_random_data(32,32,&n,key)!=SL_STATUS_OK || n!=32) {fault=3;break;}
         if(nvm3_writeData(nvm3_defaultHandle,KEY_OBJECT,key,32)!=ECODE_NVM3_OK) {fault=3;break;}
-        paired=true;pairing_until=now_ms()+90000;
+        paired=true;pairing_active=true;pairing_until=now_ms()+90000;
       }
       uint8_t saved[10];
       if(nvm3_readData(nvm3_defaultHandle,SETTINGS_OBJECT,saved,10)==ECODE_NVM3_OK && valid_settings(saved,10))memcpy(settings,saved,10);
@@ -199,32 +277,38 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
       int32_t record[6],restored_position;
       if(nvm3_readData(nvm3_defaultHandle,POSITION_OBJECT,record,sizeof(record))==ECODE_NVM3_OK &&
          hd_motion_restore(&motion,record,&restored_position))board_set_position(restored_position);
-      app_timer_start(&ticker,10,tick,NULL,true);
+      last_idle_notify=now_ms();
       bd_addr identity; uint8_t address_type; char name[14];
       if(sl_bt_system_get_identity_address(&identity,&address_type)==SL_STATUS_OK) {
         snprintf(name,sizeof(name),"HD Blind %02X%02X",identity.addr[1],identity.addr[0]);
         sl_bt_gatt_server_write_attribute_value(gattdb_device_name,0,13,(const uint8_t *)name);
       }
-      const uint8_t firmware_version[]="0.3.2";
+      const uint8_t firmware_version[]="0.3.3";
       sl_bt_gatt_server_write_attribute_value(gattdb_firmware_revision_string,0,5,firmware_version);
       sl_bt_advertiser_create_set(&adv);
       sl_bt_legacy_advertiser_generate_data(adv,sl_bt_advertiser_general_discoverable);
-      sl_bt_advertiser_set_timing(adv,160,320,0,0);
-      sl_bt_legacy_advertiser_start(adv,sl_bt_legacy_advertiser_connectable);
+      advertise();
       break;
     }
     case sl_bt_evt_connection_opened_id: {
       conn=evt->data.evt_connection_opened.connection;authenticated=false;subscribed=false;
+      link_fast=link_target=false;link_attempts=0;link_retry_at=0;connection_mode(true);
+      sl_bt_connection_disable_slave_latency(conn,1);
       size_t n=0;
       if(sl_bt_system_get_random_data(16,16,&n,nonce)!=SL_STATUS_OK || n!=16) sl_bt_connection_close(conn);
       break;
     }
     case sl_bt_evt_connection_closed_id:
       stop();hd_ota_disconnect();conn=0xff;authenticated=false;subscribed=false;
-      sl_bt_legacy_advertiser_start(adv,sl_bt_legacy_advertiser_connectable);break;
+      advertise();break;
+    case sl_bt_evt_connection_set_parameters_failed_id:
+      link_fast=!link_target;tick(NULL,NULL);break;
+    case sl_bt_evt_system_external_signal_id:
+      tick(NULL,NULL);break;
     case sl_bt_evt_gatt_server_characteristic_status_id:
       if(evt->data.evt_gatt_server_characteristic_status.characteristic==gattdb_hd_status)
         subscribed=(evt->data.evt_gatt_server_characteristic_status.client_config_flags&1)!=0;
+      if(subscribed)notify();
       break;
     case sl_bt_evt_gatt_server_user_read_request_id: {
       sl_bt_evt_gatt_server_user_read_request_t *e=&evt->data.evt_gatt_server_user_read_request;
@@ -291,6 +375,7 @@ void sl_bt_on_event(sl_bt_msg_t *evt) {
     }
     default:break;
   }
+  schedule();
 }
 /* Leave OTA entry disabled until matched bootloader and recovery are verified.
  * AppLoader is linked so the firmware layout already reserves its space. */

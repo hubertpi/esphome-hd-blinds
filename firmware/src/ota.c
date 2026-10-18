@@ -4,12 +4,13 @@
 #include "btl_interface.h"
 #include "btl_interface_storage.h"
 #include "sl_sleeptimer.h"
+static uint32_t ota_now(void) {uint64_t ms=0;sl_sleeptimer_tick64_to_ms(sl_sleeptimer_get_tick_count64(),&ms);return (uint32_t)ms;}
 static uint8_t state;
 static uint16_t error;
 static uint32_t written,total,erased,reboot_at,last_activity;
 static BootloaderStorageSlot_t slot;
 static uint32_t context[(BOOTLOADER_STORAGE_VERIFICATION_CONTEXT_SIZE+3)/4];
-static uint32_t now(void) {return sl_sleeptimer_tick_to_ms(sl_sleeptimer_get_tick_count());}
+static uint32_t now(void) {return ota_now();}
 static uint32_t get32(const uint8_t *p) {return p[0]|((uint32_t)p[1]<<8)|((uint32_t)p[2]<<16)|((uint32_t)p[3]<<24);}
 static void put32(uint8_t *p,uint32_t v) {for(unsigned i=0;i<4;i++) p[i]=v>>(8*i);}
 static void fail(int32_t rc) {state=6;error=(uint16_t)rc;}

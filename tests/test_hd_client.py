@@ -118,3 +118,23 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
         await self.blind.refresh()
         self.peripheral.clear_cache.assert_awaited_once()
         self.assertEqual(m.establish_connection.await_count,2)
+
+    async def test_sparse_battery_notifications_refresh_diagnostics_once(self):
+        self.blind.refresh=AsyncMock(return_value=None)
+        self.blind.battery_mv=4000
+        self.blind._diagnostics_at=m.time.monotonic()
+        packet=struct.pack('<BBHHBBBBiIH',1,0,64,0,0,85,100,0,0,0,0)
+        for _ in range(20):self.blind._notification(None,packet)
+        await asyncio.sleep(0)
+        self.blind.refresh.assert_not_awaited()
+        self.blind._diagnostics_at-=6*3600
+        for _ in range(20):self.blind._notification(None,packet)
+        await self.blind._diagnostics_task
+        self.blind.refresh.assert_awaited_once()
+
+    async def test_explicit_unload_does_not_trigger_reconnect_callback(self):
+        callback=AsyncMock()
+        self.blind.changed=callback
+        await self.blind.disconnect()
+        self.blind._disconnected(None)
+        callback.assert_not_called()

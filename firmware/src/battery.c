@@ -8,6 +8,7 @@
 #include "em_gpio.h"
 #include "sl_sleeptimer.h"
 #include "sl_power_manager.h"
+static uint32_t battery_now(void) {uint64_t ms=0;sl_sleeptimer_tick64_to_ms(sl_sleeptimer_get_tick_count64(),&ms);return (uint32_t)ms;}
 static uint16_t millivolts=0xffff,raw=0xffff;
 static uint8_t phase,count;
 static uint32_t deadline,next,samples;
@@ -15,7 +16,7 @@ static void off(void) {
  ADC_Reset(ADC0);CMU_ClockEnable(cmuClock_ADC0,false);GPIO_PinOutClear(gpioPortF,6);sl_power_manager_remove_em_requirement(SL_POWER_MANAGER_EM1);phase=0;
 }
 void hd_battery_tick(bool idle) {
- uint32_t now=sl_sleeptimer_tick_to_ms(sl_sleeptimer_get_tick_count());
+ uint32_t now=battery_now();
  if(!idle) {if(phase)off();return;}
  if(!phase) {
   if((int32_t)(now-next)<0)return;
@@ -39,11 +40,19 @@ void hd_battery_tick(bool idle) {
     raw=(samples+4)/8;
     uint32_t mv=((uint32_t)raw*2500u*147u)/(4096u*47u);
     millivolts=(mv>=2500 && mv<=4350)?mv:0xffff;
-    off();next=now+60000;
+    off();next=now+21600000u;
    } else {ADC_Start(ADC0,adcStartSingle);deadline=now+100;}
-  } else if((int32_t)(now-deadline)>=0) {millivolts=raw=0xffff;off();next=now+60000;}
+  } else if((int32_t)(now-deadline)>=0) {millivolts=raw=0xffff;off();next=now+21600000u;}
  }
 }
 uint16_t hd_battery_mv(void) {return millivolts;}
 uint16_t hd_battery_raw(void) {return raw;}
 uint8_t hd_battery_percent(void) {return hd_battery_estimate(millivolts);}
+
+/* One-shot scheduler: no background ADC polling while the divider is off. */
+uint32_t hd_battery_delay(void) {
+ uint32_t now=battery_now();
+ if(phase==2)return 1;
+ uint32_t due=phase==1?deadline:next;
+ return (int32_t)(due-now)>0?due-now:1;
+}

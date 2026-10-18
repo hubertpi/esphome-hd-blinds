@@ -28,6 +28,7 @@ static Timer timer;
 #define cmuClock_GPIO 0
 #define cmuClock_TIMER0 1
 #define GPIO_ODD_IRQn 0
+#define GPIO_EVEN_IRQn 1
 #define timerPrescale16 0
 #define timerCCModePWM 0
 #define timerEdgeBoth 0
@@ -48,6 +49,8 @@ static void GPIO_PinOutSet(int port,int pin){pins[port]|=1u<<pin;}
 static void GPIO_PinModeSet(int port,int pin,int mode,int value){(void)mode;if(value)GPIO_PinOutSet(port,pin);else GPIO_PinOutClear(port,pin);}
 static int GPIO_PinInGet(int port,int pin){return !!(pins[port]&(1u<<pin));}
 static uint32_t GPIO_IntGetEnabled(void){return irq_flags;}
+static void GPIO_IntEnable(uint32_t flags){(void)flags;}
+static void GPIO_IntDisable(uint32_t flags){(void)flags;}
 static void GPIO_IntClear(uint32_t flags){irq_flags&=~flags;}
 static void GPIO_ExtIntConfig(int p,int pin,int n,bool r,bool f,bool e){(void)p;(void)pin;(void)n;(void)r;(void)f;(void)e;}
 static void NVIC_ClearPendingIRQ(int n){(void)n;}
@@ -66,9 +69,15 @@ static void TIMER_CounterSet(Timer *t,unsigned v){(void)t;(void)v;}
             (work/'test.c').write_text(r'''
 #include <assert.h>
 #include "board.c"
+static unsigned wakes;
+static void wake(void){wakes++;}
 static void pulse(void){irq_flags|=1u<<11;GPIO_ODD_IRQHandler();}
 int main(void){
- board_init();board_set_position(2);
+ board_init();board_set_wake_callback(wake);
+ irq_flags=1u<<8;GPIO_EVEN_IRQHandler();assert(wakes==1);
+ irq_flags=1u<<7;GPIO_ODD_IRQHandler();assert(wakes==2);
+ irq_flags=1u<<13;GPIO_ODD_IRQHandler();assert(wakes==3);
+ board_set_position(2);
  board_drive(1,65);board_target(true,0);
  pulse();assert(board_position()==1 && !board_target_reached());
  pulse();assert(board_position()==0 && board_target_reached());

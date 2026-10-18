@@ -3,7 +3,7 @@
 Target: BGM13P22F512GA / EFR32BG13P, REV.J motor PCB.
 Gecko SDK 4.4.6, commit 59d2160fe448b13730a91c0f019a8b4c53c43eb2.
 
-Firmware 0.3.0 provides guided upper/lower calibration through the HA Configure
+Firmware 0.3.3 provides guided upper/lower calibration through the HA Configure
 flow, persistent encoder position, and a cover percentage target after
 calibration. Movement has a configurable hard timeout up to 120 seconds and a
 2-second no-encoder-progress watchdog. Endpoint slowdown/coast control still
@@ -36,3 +36,9 @@ make -C build/hd_blind -f hd_blind.Makefile ARM_GCC_DIR=/path/to/gcc-arm
 ```
 
 The SDK and compiler are external dependencies, not vendored in this repository.
+
+
+Power behavior: event-driven idle sleep, boot/six-hour battery measurements,
+sparse idle notifications, 4 Hz moving position, direct Stop handling. GPIO wakes
+retain physical pairing/charging indications. See PROTOCOL.md for intervals and
+CUSTOM_FIRMWARE.md for integration update instructions. Savings are unmeasured.

@@ -17,3 +17,6 @@ void board_target(bool enabled,int32_t target);
 bool board_target_reached(void);
 
 int32_t board_cut_position(void);
+
+/* IRQ-safe callback; application posts a Bluetooth external signal. */
+void board_set_wake_callback(void (*callback)(void));

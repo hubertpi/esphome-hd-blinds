@@ -14,7 +14,7 @@ class BlindCoordinator(DataUpdateCoordinator):
     def __init__(self, hass, entry):
         import logging
         super().__init__(hass, logging.getLogger(__name__), name=entry.title,
-                         update_interval=timedelta(seconds=30))
+                         update_interval=timedelta(hours=6))
         self.entry = entry
         self.blind = BlindClient(
             lambda: bluetooth.async_ble_device_from_address(hass, entry.data['address'], True),
@@ -22,6 +22,9 @@ class BlindCoordinator(DataUpdateCoordinator):
 
     def received(self, status):
         if status is None:
+            self.update_interval=timedelta(seconds=30)
+            # Reconnect promptly; do not wait for the six-hour diagnostic poll.
+            self.hass.async_create_task(self.async_request_refresh())
             self.async_set_update_error(UpdateFailed('Bluetooth disconnected'))
         else:
             self.async_set_updated_data(status)
@@ -37,11 +40,13 @@ class BlindCoordinator(DataUpdateCoordinator):
             if self.blind.updating:
                 return self.blind.status
             status=await self.blind.refresh()
+            self.update_interval=timedelta(hours=6)
             self.sync_firmware_version()
             return status
         except PermissionError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except Exception as err:
+            self.update_interval=timedelta(seconds=30)
             raise UpdateFailed(str(err)) from err
 
 async def async_setup_entry(hass, entry):

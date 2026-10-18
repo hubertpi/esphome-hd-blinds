@@ -6,6 +6,8 @@
 #include "em_gpio.h"
 #include "em_timer.h"
 #include "em_core.h"
+static void (*wake_callback)(void);
+void board_set_wake_callback(void (*callback)(void)) {wake_callback=callback;}
 static volatile int32_t position;
 static volatile uint32_t pulses;
 static volatile uint8_t direction, count_direction;
@@ -20,6 +22,8 @@ void board_stop(void) {
   target_enabled=false;
 }
 void board_finish_stop(void) {
+  GPIO_IntDisable(1u<<11);
+  GPIO_IntClear(1u<<11);
   GPIO_PinOutClear(gpioPortF,5);
   count_direction=0;
   target_enabled=false;target_reached=false;
@@ -36,7 +40,12 @@ void board_init(void) {
   GPIO_PinModeSet(gpioPortC,7,gpioModeInputPull,1);
   GPIO_PinModeSet(gpioPortC,8,gpioModeInputPullFilter,1);
   GPIO_PinModeSet(gpioPortC,11,gpioModeInput,0);
-  GPIO_ExtIntConfig(gpioPortC,11,11,true,false,true);
+  GPIO_ExtIntConfig(gpioPortC,11,11,true,false,false);
+  /* Button and charging edges wake the application without idle polling. */
+  GPIO_ExtIntConfig(gpioPortC,8,8,true,true,true);
+  GPIO_ExtIntConfig(gpioPortC,7,7,true,true,true);
+  GPIO_ExtIntConfig(gpioPortB,13,13,true,true,true);
+  NVIC_ClearPendingIRQ(GPIO_EVEN_IRQn); NVIC_EnableIRQ(GPIO_EVEN_IRQn);
   NVIC_ClearPendingIRQ(GPIO_ODD_IRQn); NVIC_EnableIRQ(GPIO_ODD_IRQn);
   TIMER_Init_TypeDef ti=TIMER_INIT_DEFAULT;
   ti.enable=false; ti.prescale=timerPrescale16;
@@ -47,8 +56,13 @@ void board_init(void) {
   TIMER_TopSet(TIMER0,120);
   board_stop();board_finish_stop();
 }
+void GPIO_EVEN_IRQHandler(void) {
+  uint32_t flags=GPIO_IntGetEnabled()&(1u<<8);GPIO_IntClear(flags);
+  if(flags && wake_callback)wake_callback();
+}
 void GPIO_ODD_IRQHandler(void) {
-  uint32_t flags=GPIO_IntGetEnabled(); GPIO_IntClear(flags);
+  uint32_t flags=GPIO_IntGetEnabled()&((1u<<7)|(1u<<11)|(1u<<13)); GPIO_IntClear(flags);
+  if((flags&((1u<<7)|(1u<<13))) && wake_callback)wake_callback();
   if((flags&(1u<<11)) && count_direction) {
     pulses++;
     /* Match factory signed count: direction 1 decreases, direction 2 increases. */
@@ -58,6 +72,7 @@ void GPIO_ODD_IRQHandler(void) {
                           (count_direction==2 && position>=target_position))) {
       /* Cut drive at the target in the IRQ; keep counting coast pulses. */
       target_cut_position=position;board_stop();target_reached=true;
+      if(wake_callback)wake_callback();
     }
   }
 }
@@ -70,6 +85,7 @@ void board_drive(uint8_t dir,uint8_t duty) {
     TIMER_CompareSet(TIMER0,1,121u*duty/100u);
     TIMER_CounterSet(TIMER0,0);
     direction=dir;count_direction=dir;target_reached=false;
+    GPIO_IntClear(1u<<11);GPIO_IntEnable(1u<<11);
     GPIO_PinOutSet(gpioPortF,5);
     TIMER0->ROUTEPEN=TIMER_ROUTEPEN_CC0PEN|TIMER_ROUTEPEN_CC1PEN;
     TIMER_Enable(TIMER0,true);

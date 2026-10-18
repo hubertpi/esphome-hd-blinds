@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="12 12 232 232">
+  <title>HD Blinds</title>
+  <rect x="12" y="12" width="232" height="232" rx="48" fill="#123b4a"/>
+  <path d="M63 57h130v139H63z" fill="#123b4a" stroke="#f0fbfc" stroke-width="10" stroke-linejoin="round"/>
+  <rect x="54" y="48" width="148" height="22" rx="7" fill="#39d3c8"/>
+  <g fill="#39d3c8">
+    <rect x="74" y="80" width="108" height="14" rx="3"/>
+    <rect x="74" y="102" width="108" height="14" rx="3"/>
+    <rect x="74" y="124" width="108" height="14" rx="3"/>
+    <rect x="74" y="146" width="108" height="14" rx="3"/>
+  </g>
+  <path d="M208 76v83" fill="none" stroke="#f0fbfc" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="208" cy="168" r="9" fill="#39d3c8"/>
+</svg>

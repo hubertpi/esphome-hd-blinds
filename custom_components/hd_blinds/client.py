@@ -1,5 +1,6 @@
 """BLE transport. Uses HA's selected adapter, including active ESPHome proxies."""
 import asyncio
+import time
 from dataclasses import replace
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from . import protocol as p
@@ -19,19 +20,37 @@ class BlindClient:
         self.battery_mv = None
         self.battery_raw = None
         self.calibration = None
+        self._diagnostics_at = None
+        self._diagnostics_task = None
+        self._closing = False
 
     def _disconnected(self, client):
-        if self.changed:
+        if self.changed and not self._closing:
             self.changed(None)
 
     def _notification(self, characteristic, value):
         self.status = p.Status.decode(bytes(value))
         if self.changed:
             self.changed(self.status)
+        # Read voltage alongside the sparse battery/status push, not every move.
+        # A single managed task avoids parallel refreshes while notifications arrive.
+        if (self.status.flags & 64 and not self.updating
+                and (self.battery_mv is None or self._diagnostics_at is None or time.monotonic()-self._diagnostics_at>=5*3600)
+                and (self._diagnostics_task is None or self._diagnostics_task.done())):
+            self._diagnostics_task=asyncio.create_task(self._refresh_diagnostics())
+
+    async def _refresh_diagnostics(self):
+        try:
+            status=await self.refresh()
+            if self.changed:self.changed(status)
+        except Exception:
+            # The coordinator handles availability/reconnect; never replay commands.
+            pass
 
     async def _connect(self, cache_retry=True):
         if self.client and self.client.is_connected:
             return
+        self._closing = False
         device = self.get_device()
         if device is None:
             raise ConnectionError('Blind is not in range of an active Bluetooth adapter')
@@ -89,6 +108,7 @@ class BlindClient:
                 self.battery_raw = None if raw == 65535 else raw
             if self.status.flags & p.CAL_CAPABLE:
                 self.calibration = p.Calibration.decode(await self.client.read_gatt_char(p.CALIBRATION))
+            self._diagnostics_at=time.monotonic()
             return self.status
 
     async def send(self, opcode, argument=0):
@@ -135,6 +155,10 @@ class BlindClient:
                 self.changed(self.status)
 
     async def disconnect(self):
+        self._closing = True
+        if self._diagnostics_task and not self._diagnostics_task.done():
+            self._diagnostics_task.cancel()
+            await asyncio.gather(self._diagnostics_task,return_exceptions=True)
         if self.client and self.client.is_connected:
             await self.client.disconnect()
 

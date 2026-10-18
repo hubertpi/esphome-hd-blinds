@@ -57,7 +57,7 @@ A 120-second inactivity timeout or disconnect aborts an unfinished transfer.
 Battery diagnostics is `<HH`: millivolts, ADC raw value. 65535 means unknown.
 0.2.0 returns unknown; 0.2.1 samples the factory divider while idle, using PF6
 for divider power, APORT1XCH20, 2.5 V reference, and 147/47 scaling. Eight 12-bit
-samples are averaged once per minute. Values outside 2.5–4.35 V are rejected.
+samples are averaged at boot and every six hours while idle. Values outside 2.5–4.35 V are rejected.
 Percentage is explicitly a single-cell Li-ion voltage estimate, not measured
 remaining charge capacity. The voltage mapping still needs a meter check.
 
@@ -117,3 +117,33 @@ torque. Endpoint slowdown is a separate later phase. Status flag 16384 denotes
 the coast/settling interval; configuration flows may wait for it to clear before
 capturing an endpoint. No wire frame lengths, NVM3 layouts or characteristic
 UUIDs changed from 0.3.0.
+
+
+### 0.3.3 power behavior (wire format unchanged)
+
+The application uses a one-shot low-frequency timer for the next useful deadline,
+not a permanent 10 ms timer. Motor/OTA processing remains at 10 ms while active;
+position notifications are approximately 4 Hz during movement. Stop cuts the
+bridge in the command handler before its write response; BLE/proxy transport
+latency still applies. Stop, final settled position, faults, enrollment and
+charging changes are reported immediately. Unchanged idle status is six-hourly.
+Battery sampling is at boot and every six hours, deferred while moving/updating.
+
+PC8 button and PC7/PB13 charger edges wake the application via GPIO interrupts
+and a Bluetooth external signal. Button hold timing and LED transitions schedule
+only their required wakeups. Encoder power/interrupt are off after coast settles.
+The extended sleeptimer counter avoids the old hardware tick rollover in long
+runs. Existing NVM3 settings, calibration and pairing records are unchanged.
+
+Requested BLE intervals are 100–200 ms idle and 30–50 ms while moving, settling,
+pairing or updating, with peripheral latency disabled. The central/proxy controls
+accepted intervals; parameter requests are bounded to three attempts per mode.
+Disconnected advertising is 100–200 ms for the first minute/enrollment, then
+1.0–1.2 seconds. The connection stays available for commands.
+
+Integration 0.3.3 reduces connected diagnostic polling from 30 seconds to six
+hours; disconnection starts prompt reconnect with 30-second retry polling until
+available. Battery notifications can refresh raw voltage diagnostics at sparse
+intervals. Firmware discovery remains six-hourly over HTTP and does not wake the
+blind. Update the integration once to benefit from this reduced BLE polling.
+There are no measured current or battery-life claims.

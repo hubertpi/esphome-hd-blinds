@@ -1,0 +1,8 @@
+{
+  "version": "0.3.3",
+  "bytes": 184172,
+  "sha256": "8f46ed621ab784a8c4b9d5e9b4b5abd76b2619e37be8b49c85daff31ca8c2aab",
+  "encoding": "gzip-base64",
+  "url": "https://raw.githubusercontent.com/hubertpi/esphome-hd-blinds/main/firmware/releases/hd-power-0.3.3.gz.b64",
+  "summary": "Battery savings: event-driven idle sleep, six-hour battery sampling, sparse HA polling, live movement and immediate Stop handling."
+}

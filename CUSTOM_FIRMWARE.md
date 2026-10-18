@@ -5,25 +5,18 @@ The new integration in `custom_components/hd_blinds` talks directly to the new
 BG13 firmware over Home Assistant Bluetooth, including active ESPHome proxies.
 No phone address spoofing or imported factory bond is needed for custom firmware.
 
-## Included
+## Current features (0.3.3)
 
-- Cover: Open, Close, Stop.
-- Numbers: Up PWM, Down PWM, Startup PWM, Startup ramp, Maximum run time.
-- Diagnostics: signed raw position, encoder pulse count, motor state, fault.
-- Binary sensors: Pairing mode, Charging, Charger connected.
-- Buttons: Zero position counter, Clear motor fault, Open pairing mode.
-- Physical button: hold 3 seconds for 90-second enrollment.
-- Blue pairing LED and red charging LED, reconstructed from factory routines.
-- Automatic name from MAC suffix, for example `HD Blind 0D3C`.
-- Persistent motor settings and per-connection HMAC authentication.
-- Local stop on BLE disconnect and a maximum 10-second movement timeout.
-
-The first build is for the loose test motor. Up/down labels and LED/charging
-mapping need confirmation on hardware. No end limits or calibrated percentage
-are claimed. Reaching the run timeout stops the motor and latches a fault;
-use Clear motor fault before another movement. Zero counter is only available
-while stopped. Counters reset on boot. The startup ramp begins at 50%, rises
-to Startup PWM, then changes to the selected direction's running PWM.
+- HA cover Open/Close/Stop and percentage targets after upper/lower calibration.
+- Separate direction speeds, immediate Startup PWM followed by a ramp to cruise,
+  near-end slowing settings, and a configurable maximum run time up to 120 seconds.
+- Signed encoder position and pulse diagnostics; durable settled-position storage.
+- Battery voltage and approximate single-cell Li-ion percentage; charging sensors.
+- Physical pairing button, blue pairing/red charging LEDs, MAC-suffix name.
+- Authenticated BLE control and staged custom OTA through active ESPHome proxies.
+- Event-driven idle power savings with six-hour battery/idle telemetry and live
+  position during movement. Detailed charging behavior and loaded motion still
+  need physical validation on the test motor.
 
 ## Install Home Assistant integration
 
@@ -37,7 +30,7 @@ boot also opens enrollment. Pairing requires proximity to an active Bluetooth
 proxy. Keep the enrollment window closed outside provisioning; the enrollment
 key is transferred over BLE while that physical window is open.
 
-## Firmware status and recovery
+## Historical first-build artifact and recovery
 
 `firmware/releases/hd-blind-bench.bin.gz.b64` contains the compiled main-flash
 image (base64 of gzip). The companion JSON gives its size, SHA-256 and address.
@@ -157,3 +150,27 @@ the normal HA form-action spinner remains. Errors now explain an uncertain
 position reference instead of only returning numeric command result 3. After an
 encoder-stall fault, clearing the fault still does not manufacture a reference;
 recalibration is required if the Position referenced diagnostic is Off.
+
+
+### 0.3.3: battery savings and integration icon
+
+Install HACS integration **0.3.3**, restart Home Assistant, then use the Firmware
+update entity to install **0.3.3** over BLE. The HACS update is needed this time
+because the old integration polls the motor every 30 seconds. Future firmware-only
+releases continue to use the existing GitHub manifest/update entity.
+
+The integration includes its own blind icon for light and dark themes.
+
+Idle battery sampling/status is six-hourly; state changes still push immediately.
+Movement retains 10 ms control and approximately four position updates/second.
+Stop is processed directly on command arrival. The connection is retained, using
+requested 100–200 ms idle / 30–50 ms active intervals with no peripheral latency.
+Advertising slows after a minute when disconnected. Pairing and charger inputs
+wake by interrupt; LED timing and battery ADC use scheduled wakeups. The encoder
+is powered and interrupt-enabled only during movement/coast. See PROTOCOL.md.
+
+No current measurement is available. Track resting battery voltage over several
+days with charging disconnected and note motor use. Cell capacity and voltage
+trend can give a rough discharge estimate, but the nonlinear curve and motor
+energy mean this is not a precise idle-current measurement. Saved configuration
+and calibration survive this application-only OTA update.

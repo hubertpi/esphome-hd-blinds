@@ -33,7 +33,8 @@ int bootloader_setImageToBootload(uint32_t id);
 ''')
             (p/'sl_sleeptimer.h').write_text('''
 #include <stdint.h>
-uint32_t sl_sleeptimer_get_tick_count(void);
+uint64_t sl_sleeptimer_get_tick_count64(void);
+int sl_sleeptimer_tick64_to_ms(uint64_t x,uint64_t *out);
 uint32_t sl_sleeptimer_tick_to_ms(uint32_t x);
 ''')
             (p/'test.c').write_text('''
@@ -46,7 +47,8 @@ uint32_t sl_sleeptimer_tick_to_ms(uint32_t x);
 static uint32_t clock_ms,slot_size=0x37000;
 static unsigned erased,writes,scheduled,reboots;
 static int verify_result=BOOTLOADER_ERROR_PARSE_SUCCESS;
-uint32_t sl_sleeptimer_get_tick_count(void){return clock_ms;}
+uint64_t sl_sleeptimer_get_tick_count64(void){return clock_ms;}
+int sl_sleeptimer_tick64_to_ms(uint64_t x,uint64_t *out){*out=x;return 0;}
 uint32_t sl_sleeptimer_tick_to_ms(uint32_t x){return x;}
 int bootloader_init(void){return 0;}
 void bootloader_getInfo(BootloaderInformation_t *p){p->version=1;}
