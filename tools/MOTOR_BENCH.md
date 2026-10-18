@@ -24,19 +24,21 @@ Earlier proposed backside test-point numbers 17 and 6 were retracted.
 From the directory containing the matching `hd-blind-original.bin` backup:
 
 ```sh
-sudo python3 motor_bench.py --duty 75
+sudo python3 motor_bench.py --duty 75 --seconds 6
 ```
 
 `--reference /path/to/hd-blind-original.bin` can select a different backup path.
 Stop existing OpenOCD processes before running. OpenOCD servers are disabled.
 
 The script verifies the chip code against the original below 0x7f000, loads a
-220-byte Thumb-2 program at 0x2000f000, takes over the core with interrupts
+244-byte Thumb-2 program at 0x2000f000, takes over the core with interrupts
 masked, and gives it stack space at the top of RAM. It calls the original motor
 prepare/start functions, reproduces the original timer-overflow ramp from
 compare 60 to 121 (TOP is 120 on the tested unit), then changes to the requested
-PWM duty. The hold is 20 million CPU cycles, approximately 0.5-1 second depending
-on the core clock. It then calls the original stop routine, breaks, and resets
+PWM duty. The configurable hold defaults to 3 nominal seconds; use `--seconds 6` for
+a longer listening test. Timing assumes a 38.4 MHz core and can be longer if
+the core clock is divided. The RAM loop feeds the existing watchdog when
+enabled and not synchronizing a prior command; it does not reconfigure it. It then calls the original stop routine, breaks, and resets
 the board to reload the factory application. No flash erase/program commands
 are used. Volatile application state is discarded on reset.
 
@@ -61,9 +63,9 @@ PWM duty does not imply the same percentage of mechanical speed.
 - Suspected motor driver marking is DRV8850; not yet positively confirmed.
 
 `motor_bench_payload.s` is reviewable source for the embedded payload. The duty
-literal 0x5a5a0075 at byte offset 212 is patched by the Python tool. Keystone can
+literal 0x5a5a0075 and duration literal 0x5a5a1111 are patched by the Python tool. Keystone can
 assemble it at 0x2000f000 (Thumb-2); Keystone is not needed on the Pi.
 
 Payload flow is tested under Unicorn with the original flash routines stubbed.
-The tests cover ramp progression, requested hold duty, stopping, and a missing
-overflow flag. They do not validate the motor hardware or stock function internals.
+The tests cover ramp progression, requested hold duty, stopping, a missing
+overflow flag, longer runs with watchdog feeding, and a busy watchdog command. They do not validate the motor hardware or stock function internals.

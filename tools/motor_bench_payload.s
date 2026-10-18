@@ -30,7 +30,7 @@ blx r4
 ldr r4, =0x40018000
 ldr r5, =0xe0001004
 ldr r6, [r5]
-ldr r7, =20000000
+ldr r7, =0x5a5a1111
 movs r0, #0
 mov r8, r0
 mov r11, r0
@@ -38,6 +38,16 @@ ldr r9, [r4, #0x6c]
 ldr r10, [r4, #0x1c]
 adds r10, #1
 wait:
+ldr r0, =0x40052000
+ldr r1, [r0]
+tst r1, #1
+beq no_feed
+ldr r1, [r0, #8]
+tst r1, #3
+bne no_feed
+movs r1, #1
+str r1, [r0, #4]
+no_feed:
 ldr r0, [r5]
 subs r0, r0, r6
 cmp r0, r7
