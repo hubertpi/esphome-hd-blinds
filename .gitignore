@@ -1,0 +1,7 @@
+.esphome/
+**/.esphome/
+secrets.yaml
+*secrets*.yaml
+*.bin
+*.elf
+__pycache__/

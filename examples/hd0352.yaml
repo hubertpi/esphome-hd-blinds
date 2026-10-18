@@ -1,0 +1,24 @@
+# Merge this into the existing ESPHome device configuration.
+# Remove the old blind_hd0352 entry from ble_client: and its three test buttons.
+# Keep the EasyStart client and all its sensors/automations.
+external_components:
+  - source: github://hubertpi/esphome-hd-blinds@main
+    components: [hd_blinds]
+    refresh: 0s
+
+hd_blinds:
+  phone_mac: !secret hd_phone_mac
+  phone_name: !secret hd_phone_name
+  blinds:
+    - id: hd0352
+      mac_address: 'AA:BB:CC:DD:EE:FF'  # replace with your blind MAC
+      ltk: !secret hd0352_ltk
+      rand: !secret hd0352_rand
+      ediv: !secret hd0352_ediv
+      auth_mode: !secret hd0352_auth_mode
+      up:
+        name: 'HD0352 Up'
+      down:
+        name: 'HD0352 Down'
+      stop:
+        name: 'HD0352 Stop'

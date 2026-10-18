@@ -1,0 +1,34 @@
+esphome:
+  name: hd-blinds-compile
+esp32:
+  board: lolin32
+  framework:
+    type: esp-idf
+logger:
+esp32_ble:
+  max_connections: 4
+esp32_ble_tracker:
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [hd_blinds]
+hd_blinds:
+  phone_mac: '02:00:00:00:00:02'
+  phone_name: 'Test phone'
+  blinds:
+    - id: hd0352
+      mac_address: '02:00:00:00:00:04'
+      ltk: '000102030405060708090a0b0c0d0e0f'
+      up:
+        name: 'Test Up'
+      down:
+        name: 'Test Down'
+      stop:
+        name: 'Test Stop'
+
+# Exercise coexistence with an existing stock client (e.g. EasyStart).
+ble_client:
+  - id: existing_client
+    mac_address: "02:00:00:00:00:06"
+    auto_connect: true
